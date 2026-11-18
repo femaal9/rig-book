@@ -8,6 +8,10 @@ const CATS = [
   {k:"amp", code:"AMP", label:"Amplificatori", one:"Amplificatore"},
   {k:"fx", code:"FX", label:"Effetti e pedali", one:"Effetto / pedale"},
   {k:"interface", code:"I/O", label:"Schede audio", one:"Scheda audio"},
+  {k:"outboard", code:"OUT", label:"Outboard", one:"Outboard", subs:[
+    ["preamp","Preamp"], ["comp","Compressore"], ["eq","Equalizzatore"], ["strip","Channel strip"], ["limiter","Limiter"],
+    ["reverb","Riverbero"], ["delay","Delay / multieffetto"], ["converter","Convertitore AD/DA"], ["summing","Summing mixer"],
+    ["monctrl","Monitor controller"], ["di","DI box / reamp"], ["clock","Clock"], ["power","Alimentazione / rack"], ["other","Altro"]]},
   {k:"monitor", code:"MON", label:"Monitor e cuffie", one:"Monitor / cuffie"},
   {k:"mic", code:"MIC", label:"Microfoni", one:"Microfono"},
   {k:"keys", code:"KEY", label:"Tastiere e synth", one:"Tastiera / synth"},
@@ -17,10 +21,13 @@ const CATS = [
 // oggetti senza prototipo: chiavi come "constructor" o "__proto__" non risultano valide
 const dict = o => Object.assign(Object.create(null), o);
 const CAT = dict(Object.fromEntries(CATS.map(c => [c.k, c])));
+// sottocategorie: CAT[k].sub = {chiave: etichetta}, CAT[k].subOrder = {chiave: posizione}
+CATS.forEach(c => { if(c.subs){ c.sub = dict(Object.fromEntries(c.subs)); c.subOrder = dict(Object.fromEntries(c.subs.map(([k], n) => [k, n]))); } });
+const subLabel = i => CAT[i.cat]?.sub?.[i.sub] ?? "";
 const CAT_ORDER = dict(Object.fromEntries(CATS.map((c, n) => [c.k, n])));
 const STATUS = dict({active:"In uso", lent:"In prestito", repair:"In riparazione", sold:"Venduto"});
 const COND = dict({new:"Nuovo", used:"Usato", bstock:"B-stock"});
-const FIELDS = ["cat","brand","model","finish","serial","year","status","gauge","sbrand","tuning","changed","setup","buyYear","price","where","cond","soldPrice","notes"];
+const FIELDS = ["cat","sub","brand","model","finish","serial","year","status","gauge","sbrand","tuning","changed","setup","buyYear","price","where","cond","soldPrice","notes"];
 const STRING_FIELDS = ["gauge","sbrand","tuning","changed","setup"];
 const NUMS = new Set(["year","buyYear","price","soldPrice"]);
 const YEARS = new Set(["year","buyYear"]);
@@ -45,13 +52,14 @@ const ICONS = {
   monitor:'<path d="M3 15v-3a9 9 0 0 1 18 0v3"/><rect x="2.5" y="14" width="4.5" height="7" rx="1.5"/><rect x="17" y="14" width="4.5" height="7" rx="1.5"/>',
   mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/>',
   keys:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M7 6v7M12 6v7M17 6v7M2 13h20"/>',
+  outboard:'<rect x="2" y="6" width="20" height="12" rx="1.5"/><path d="M4.5 9v6M19.5 9v6"/><circle cx="8.5" cy="12" r="1.7"/><circle cx="13" cy="12" r="1.7"/><path d="M16.5 10.3v3.4"/>',
   computer:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
   other:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/>',
 };
 const icon = k => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ICONS.other}</svg>`;
 
 // Pagina e script di versioni diverse (cache del vecchio service worker): ripara e ricarica una volta.
-if(!$("sort") || !$("notes") || !$("toast") || !$("sBars") || !$("topbar")){
+if(!$("sort") || !$("notes") || !$("toast") || !$("sBars") || !$("topbar") || !$("subChips") || !$("f_sub")){
   let tried = false;
   try{ tried = sessionStorage.getItem("rigbook.repair") === "1"; sessionStorage.setItem("rigbook.repair", "1"); }catch{}
   const msg = document.createElement("p");
@@ -121,6 +129,7 @@ function normalize(raw){
     }
   }
   if(!has(CAT, d.cat)) d.cat = "other";
+  if(d.sub && !(CAT[d.cat].sub && has(CAT[d.cat].sub, d.sub))) delete d.sub;
   if(!has(STATUS, d.status)) d.status = "active";
   if(d.cond && !has(COND, d.cond)) delete d.cond;
   if(d.changed && !isDate(d.changed)) delete d.changed;
@@ -143,7 +152,7 @@ const LS_KEY = "rigbook.items.v1";
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
 const okId = s => typeof s === "string" && /^[A-Za-z0-9_\-.~:@+]{1,100}$/.test(s) && !s.startsWith("demo") && !(s in Object.prototype);
 
-let items = [], filter = "all", editingId = null, loaded = false, storageBroken = false, readOnly = false;
+let items = [], filter = "all", subFilter = "all", editingId = null, loaded = false, storageBroken = false, readOnly = false;
 
 const store = {
   read(){
@@ -249,13 +258,14 @@ function hideToast(){ clearTimeout(toastTimer); $("toast").hidden = true; }
 
 // ---------- filtri, ricerca, ordinamento ----------
 const SORTS = {
-  cat: (a, b) => (CAT_ORDER[a.cat] ?? 99) - (CAT_ORDER[b.cat] ?? 99) || (b.buyYear || 0) - (a.buyYear || 0) || byName(a, b),
+  cat: (a, b) => (CAT_ORDER[a.cat] ?? 99) - (CAT_ORDER[b.cat] ?? 99) || subRank(a) - subRank(b) || (b.buyYear || 0) - (a.buyYear || 0) || byName(a, b),
   recent: (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0) || byName(a, b),
   brand: (a, b) => byName(a, b),
   price: (a, b) => (b.price ?? -1) - (a.price ?? -1) || byName(a, b),
   strings: (a, b) => (daysSince(b.changed) ?? -1e9) - (daysSince(a.changed) ?? -1e9) || byName(a, b),
 };
 const coll = (() => { try{ return new Intl.Collator("it", {sensitivity:"base", numeric:true}); }catch{ return {compare:(x, y) => x < y ? -1 : x > y ? 1 : 0}; } })();
+function subRank(i){ const o = CAT[i.cat]?.subOrder; return o ? (o[i.sub] ?? 98) : 0; }
 function byName(a, b){ return coll.compare(a.brand || a.model || "", b.brand || b.model || "") || coll.compare(a.model || "", b.model || ""); }
 let sortKey = has(SORTS, prefs.sort) ? prefs.sort : "cat";
 $("sort").value = sortKey;
@@ -264,7 +274,7 @@ $("sort").addEventListener("change", e => { sortKey = has(SORTS, e.target.value)
 function haystack(i){
   const c = CAT[i.cat] || CAT.other;
   return [i.brand, i.model, i.finish, i.serial, i.year, i.gauge, i.sbrand, i.tuning, i.setup, i.buyYear, i.price, i.where, i.notes, i.soldPrice,
-    c.label, c.one, c.code, STATUS[i.status], COND[i.cond]].filter(v => v != null).join(" ").toLocaleLowerCase("it");
+    c.label, c.one, c.code, subLabel(i), STATUS[i.status], COND[i.cond]].filter(v => v != null).join(" ").toLocaleLowerCase("it");
 }
 const visibleBase = () => $("showSold").checked ? items : items.filter(i => i.status !== "sold");
 
@@ -275,8 +285,19 @@ function renderChips(){
   const list = [{k:"all", code:"ALL", label:"Tutto", n:base.length}, ...CATS.filter(c => counts[c.k]).map(c => ({...c, n:counts[c.k]}))];
   $("chips").innerHTML = list.map(c =>
     `<button type="button" class="chip ${c.k === "all" ? "" : "cat-" + esc(c.k)}" data-k="${esc(c.k)}" aria-pressed="${filter === c.k}">${c.k === "all" ? "" : `<span class="dotc" aria-hidden="true"></span>`}${esc(c.label)} <span class="code"><span class="sr-only">, </span>${c.n}</span></button>`).join("");
+  // sottocategorie della categoria scelta (es. Outboard → Preamp, Compressore…)
+  const cat = filter !== "all" ? CAT[filter] : null;
+  const subCounts = {};
+  if(cat?.subs) base.filter(i => i.cat === filter).forEach(i => { const k = i.sub || "_none"; subCounts[k] = (subCounts[k] || 0) + 1; });
+  const subs = cat?.subs ? cat.subs.filter(([k]) => subCounts[k]) : [];
+  if(subCounts._none && subs.length) subs.push(["_none", "Senza tipo"]);
+  if(subFilter !== "all" && !subCounts[subFilter]) subFilter = "all";
+  $("subChips").hidden = subs.length < 1;
+  $("subChips").innerHTML = subs.length ? [["all", "Tutti i tipi", Object.values(subCounts).reduce((a, b) => a + b, 0)], ...subs.map(([k, l]) => [k, l, subCounts[k]])].map(([k, l, n]) =>
+    `<button type="button" class="chip sub cat-${esc(filter)}" data-s="${esc(k)}" aria-pressed="${subFilter === k}">${esc(l)} <span class="code"><span class="sr-only">, </span>${n}</span></button>`).join("") : "";
 }
-$("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if(!b) return; filter = b.dataset.k; render(); b.isConnected || document.querySelector(`.chip[data-k="${CSS.escape(filter)}"]`)?.focus(); });
+$("subChips").addEventListener("click", e => { const b = e.target.closest(".chip"); if(!b) return; subFilter = b.dataset.s; render(); document.querySelector(`#subChips .chip[data-s="${CSS.escape(subFilter)}"]`)?.focus(); });
+$("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if(!b) return; filter = b.dataset.k; subFilter = "all"; render(); b.isConnected || document.querySelector(`.chip[data-k="${CSS.escape(filter)}"]`)?.focus(); });
 $("search").addEventListener("input", () => renderList());
 $("showSold").addEventListener("change", () => render());
 
@@ -360,7 +381,7 @@ function card(i, n = 0){
   if(i.status === "sold" && i.soldPrice != null) rows.push(["Venduto per", EUR(i.soldPrice)]);
   if(i.serial) rows.push(["N/S", i.serial]);
   return `<article class="card cat-${esc(c.k)}${i.status === "sold" ? " sold" : ""}${i.example ? " example" : ""}" style="--n:${Math.min(n, 12)}">
-    <div class="card-top"><div class="cat"><span class="ic">${icon(c.k)}</span><span class="stencil">${esc(c.code)} · ${esc(c.one)}</span></div><span class="pills">${pills.join("")}</span></div>
+    <div class="card-top"><div class="cat"><span class="ic">${icon(c.k)}</span><span class="stencil">${esc(c.code)} · ${esc(subLabel(i) || c.one)}</span></div><span class="pills">${pills.join("")}</span></div>
     <h3 class="name"><button type="button" class="card-open" data-id="${esc(i.id)}">${esc(title)}${i.example ? `<span class="sr-only"> (esempio: tocca per aggiungere un pezzo)</span>` : ""}</button>${sub ? `<small>${esc(sub)}</small>` : ""}</h3>
     ${gauge}
     ${rows.length ? `<dl class="specs">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
@@ -376,6 +397,7 @@ function renderList(){
   const words = q ? q.split(/\s+/) : [];
   const shown = visibleBase()
     .filter(i => filter === "all" || i.cat === filter)
+    .filter(i => subFilter === "all" || (subFilter === "_none" ? !i.sub : i.sub === subFilter))
     .filter(i => { if(!words.length) return true; const h = haystack(i); return words.every(w => h.includes(w)); })
     .sort(SORTS[sortKey] || SORTS.cat);
   $("listCount").textContent = shown.length === 1 ? "1 pezzo" : `${shown.length} pezzi`;
@@ -394,7 +416,15 @@ function render(){ renderChips(); renderStats(); renderList(); checkBackupRemind
 // ---------- modulo ----------
 $("f_cat").innerHTML = CATS.map(c => `<option value="${esc(c.k)}">${esc(c.code)} · ${esc(c.one)}</option>`).join("");
 function syncForm(){
-  $("stringsSet").hidden = !CAT[$("f_cat").value]?.strings;
+  const c = CAT[$("f_cat").value];
+  $("stringsSet").hidden = !c?.strings;
+  const sel = $("f_sub"), keep = sel.value;
+  $("subWrap").hidden = !c?.subs;
+  if(c?.subs && sel.dataset.cat !== c.k){
+    sel.innerHTML = `<option value="">— scegli —</option>` + c.subs.map(([k, l]) => `<option value="${esc(k)}">${esc(l)}</option>`).join("");
+    sel.dataset.cat = c.k;
+    sel.value = has(c.sub, keep) ? keep : "";
+  }
   $("soldWrap").hidden = $("f_status").value !== "sold";
 }
 $("f_cat").addEventListener("change", syncForm);
@@ -412,6 +442,8 @@ function openForm(id, cat){
   $("form").reset();
   FIELDS.forEach(f => { $("f_" + f).value = i && i[f] != null ? fmtField(f, i[f]) : ""; });
   if(!i){ $("f_cat").value = has(CAT, cat) ? cat : (filter !== "all" ? filter : "guitar"); $("f_status").value = "active"; }
+  syncForm();   // prepara le opzioni della sottocategoria prima di sceglierne una
+  $("f_sub").value = i ? (i.sub || "") : (!cat && subFilter !== "all" && subFilter !== "_none" && $("f_cat").value === filter ? subFilter : "");
   $("f_changed").max = todayISO();
   $("dlgTitle").textContent = i ? titleOf(i) : "Nuovo pezzo";
   $("delBtn").hidden = !i;

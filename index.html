@@ -59,7 +59,7 @@
 
 /* colori per categoria: tinta dell'icona e della scheda */
 .cat-guitar{--c:#D4892A} .cat-bass{--c:#D2603F} .cat-amp{--c:#C2453A} .cat-fx{--c:#3E9A5C} .cat-interface{--c:#2F938F}
-.cat-monitor{--c:#3D7CC9} .cat-mic{--c:#8A63C9} .cat-keys{--c:#C2508A} .cat-computer{--c:#6C7A86} .cat-other{--c:#8A8478}
+.cat-monitor{--c:#3D7CC9} .cat-mic{--c:#8A63C9} .cat-keys{--c:#C2508A} .cat-outboard{--c:#7E9A3A} .cat-computer{--c:#6C7A86} .cat-other{--c:#8A8478}
 
 html{-webkit-text-size-adjust:100%;scroll-padding-top:90px}
 *{box-sizing:border-box}
@@ -138,6 +138,8 @@ h1 .outline{color:transparent;-webkit-text-stroke:1.5px var(--fg)}
 .chip .dotc{width:8px;height:8px;border-radius:50%;background:var(--c,var(--faint))}
 .chip[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink);border-color:transparent}
 .chip[aria-pressed="true"] .code{color:inherit;opacity:.75}
+.subchips .chip{font-size:12.5px;padding:5px 11px;background:transparent;border-color:var(--line-strong)}
+.subchips .chip[aria-pressed="true"]{background:var(--c);color:#14110A;border-color:transparent}
 .searchbox{position:relative;flex:1 1 240px;min-width:0}
 .searchbox svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none;width:18px;height:18px}
 .search{width:100%;padding:10px 14px 10px 38px;border:1px solid var(--field-line);border-radius:999px;background:var(--surface);color:var(--fg);font:inherit;font-size:14px}
@@ -299,7 +301,6 @@ textarea{min-height:90px;resize:vertical}
   <section class="hero" aria-labelledby="heroTitle">
     <span class="eyebrow"><span class="dot" aria-hidden="true"></span>Offline · senza account · privato</span>
     <h1 id="heroTitle">Il tuo rig,<br><em>tutto in un case.</em></h1>
-    <p class="lead">Chitarre, ampli, pedali, schede audio e microfoni: cosa hai, quanto l'hai pagato, che corde monti e quando cambiarle.</p>
     <div class="hero-cta">
       <button type="button" class="btn primary big" id="firstBtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Aggiungi il primo pezzo</button>
       <span class="hint">Gratis, senza registrazione. Funziona anche senza rete.</span>
@@ -347,6 +348,7 @@ textarea{min-height:90px;resize:vertical}
     <div class="toolbar">
       <div class="section-title"><h2>Il case</h2><span id="listCount"></span></div>
       <div class="chips" id="chips" role="group" aria-label="Filtra per categoria"></div>
+      <div class="chips subchips" id="subChips" role="group" aria-label="Filtra per tipo" hidden></div>
       <div class="searchbox"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input class="search" id="search" type="search" placeholder="Cerca marca, modello, note…" aria-label="Cerca" autocomplete="off"></div>
       <select class="sort" id="sort" aria-label="Ordina">
         <option value="cat">Ordina: categoria</option>
@@ -382,6 +384,9 @@ textarea{min-height:90px;resize:vertical}
         <legend>Strumento</legend>
         <label class="full">Categoria
           <select id="f_cat" name="cat"></select>
+        </label>
+        <label class="full" id="subWrap" hidden>Tipo
+          <select id="f_sub" name="sub"></select>
         </label>
         <label>Marca<input id="f_brand" name="brand" placeholder="es. Fender" autocomplete="off" maxlength="120" aria-describedby="formErr"></label>
         <label>Modello<input id="f_model" name="model" placeholder="es. Telecaster '52 AVRI" autocomplete="off" maxlength="160"></label>
@@ -455,6 +460,6 @@ textarea{min-height:90px;resize:vertical}
   </div>
 </dialog>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
