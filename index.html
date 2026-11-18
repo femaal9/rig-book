@@ -8,7 +8,7 @@
 <title>Rig Book</title>
 <meta name="description" content="Il tuo gear musicale e da studio: modelli, anni, prezzi e scalatura delle corde.">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0B1020" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -23,13 +23,29 @@
   --bg:#FFFFFF; --panel:#EEF2FF; --surface:#FFFFFF; --line:#E1E6FA; --line-strong:#CDD4F0; --field-line:#7C84A8;
   --fg:#0F1530; --muted:#5B6385; --faint:#7C84A8;
   --accent:#3355FF; --accent-ink:#FFFFFF; --accent-dark:#2742CC; --accent-soft:#E6EBFF; --accent-hover:#E1E7FF;
-  --warn:#B54708; --warn-soft:#FFF4E5; --bad:#C4320A; --ok:#1E7F4F; --info:#3355FF;
+  --warn:#B54708; --warn-soft:#FFF4E5; --bad:#C4320A; --bad-soft:var(--bad-soft); --ok:#1E7F4F; --info:#3355FF;
+  --topbar:rgba(255,255,255,.82); --toast-bg:rgba(15,21,48,.94); --toast-fg:#FFFFFF;
+  --str-plain:#8F97BA; --str-nut:#C9D1F2;
   --f-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --f-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --f-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --r-lg:18px; --r-md:12px; --r-sm:10px;
   color-scheme:light;
 }
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0B1020; --panel:#141B33; --surface:#10162B; --line:#1F2945; --line-strong:#2C385C; --field-line:#6B76A0;
+  --fg:#EEF1FF; --muted:#A3ACCF; --faint:#7F8AB5;
+  --accent:#6E8BFF; --accent-ink:#0B1020; --accent-dark:#9DB0FF; --accent-soft:#1C2550; --accent-hover:#1A2347;
+  --warn:#FF9F5A; --warn-soft:#3A2414; --bad:#FF8A78; --bad-soft:#3A1A16; --ok:#4CC38A; --info:#6E8BFF;
+  --topbar:rgba(11,16,32,.8); --toast-bg:rgba(238,241,255,.96); --toast-fg:#0B1020;
+  --str-plain:#7F8AB5; --str-nut:#2C385C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B1020; --panel:#141B33; --surface:#10162B; --line:#1F2945; --line-strong:#2C385C; --field-line:#6B76A0;
+  --fg:#EEF1FF; --muted:#A3ACCF; --faint:#7F8AB5;
+  --accent:#6E8BFF; --accent-ink:#0B1020; --accent-dark:#9DB0FF; --accent-soft:#1C2550; --accent-hover:#1A2347;
+  --warn:#FF9F5A; --warn-soft:#3A2414; --bad:#FF8A78; --bad-soft:#3A1A16; --ok:#4CC38A; --info:#6E8BFF;
+  --topbar:rgba(11,16,32,.8); --toast-bg:rgba(238,241,255,.96); --toast-fg:#0B1020;
+  --str-plain:#7F8AB5; --str-nut:#2C385C; color-scheme:dark}
 html{-webkit-text-size-adjust:100%}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.47;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
@@ -44,7 +60,7 @@ svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-widt
 
 /* ---------- barra in alto (vetro su ::before, per non intrappolare il pulsante fisso) ---------- */
 .topbar{position:sticky;top:0;z-index:5;padding:calc(10px + env(safe-area-inset-top,0px)) 0 10px;border-bottom:1px solid transparent;transition:border-color .2s;isolation:isolate}
-.topbar::before{content:"";position:absolute;inset:0;z-index:-1;background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(1.8) blur(20px);backdrop-filter:saturate(1.8) blur(20px)}
+.topbar::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--topbar);-webkit-backdrop-filter:saturate(1.8) blur(20px);backdrop-filter:saturate(1.8) blur(20px)}
 .topbar.scrolled{border-bottom-color:var(--line)}
 .topbar-in{max-width:1040px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;align-items:center;justify-content:space-between;gap:12px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:17px;letter-spacing:-.02em;text-decoration:none;color:var(--fg)}
@@ -62,7 +78,7 @@ svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-widt
 .btn.ghost{background:transparent;border-color:transparent;color:var(--fg)}
 .btn.ghost:hover{background:var(--panel)}
 .btn.danger{color:var(--bad);border-color:transparent;background:transparent;padding-left:4px}
-.btn.danger:hover{background:#FDEDEA}
+.btn.danger:hover{background:var(--bad-soft)}
 .btn.small{padding:6px 12px;font-size:13px}
 .btn.big{padding:13px 22px;font-size:16px}
 .btn[disabled]{opacity:.4;cursor:default}
@@ -118,10 +134,10 @@ h1 em{font-style:normal;color:var(--faint)}
 .chip:hover{background:var(--accent-hover)}
 .chip .code{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .chip .dotc{display:none}
-.chip[aria-pressed="true"]{background:var(--accent);color:#fff}
-.chip[aria-pressed="true"] .code{color:rgba(255,255,255,.7)}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.chip[aria-pressed="true"] .code{color:inherit;opacity:.75}
 .subchips .chip{font-size:13px;padding:5px 12px;background:transparent;box-shadow:inset 0 0 0 1px var(--line-strong)}
-.subchips .chip[aria-pressed="true"]{background:var(--accent);color:#fff;box-shadow:none}
+.subchips .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);box-shadow:none}
 .searchbox{position:relative;flex:1 1 260px;min-width:0}
 .searchbox svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;width:17px;height:17px}
 .search{width:100%;padding:9px 14px 9px 36px;border:1px solid var(--field-line);border-radius:var(--r-sm);background:var(--surface);color:var(--fg);font:inherit;font-size:15px}
@@ -152,7 +168,7 @@ h1 em{font-style:normal;color:var(--faint)}
 .pills{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .pill{font-size:12px;padding:3px 9px;border-radius:999px;font-weight:500;white-space:nowrap;background:var(--panel);color:var(--muted);display:inline-flex;align-items:center;gap:5px}
 .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
-.pill.lent{color:var(--accent-dark);background:var(--accent-soft)} .pill.repair{color:var(--bad);background:#FDEDEA} .pill.sold{color:var(--muted)} .pill.example{color:var(--muted)}
+.pill.lent{color:var(--accent-dark);background:var(--accent-soft)} .pill.repair{color:var(--bad);background:var(--bad-soft)} .pill.sold{color:var(--muted)} .pill.example{color:var(--muted)}
 .pill.example::before{display:none}
 .name{font-size:20px;font-weight:600;line-height:1.25;margin:0;overflow-wrap:anywhere;letter-spacing:-.025em}
 .card-open{all:unset;cursor:pointer}
@@ -178,9 +194,9 @@ dl.specs dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;overflow
 .empty p{color:var(--muted);margin:0;max-width:46ch}
 
 /* ---------- toast ---------- */
-.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:20;background:rgba(15,21,48,.94);color:#fff;border-radius:14px;padding:10px 10px 10px 18px;display:flex;gap:12px;align-items:center;font-size:14px;max-width:calc(100vw - 32px);box-shadow:0 10px 30px rgba(0,0,0,.18)}
-.toast .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
-.toast .btn:hover{background:rgba(255,255,255,.1)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:20;background:var(--toast-bg);color:var(--toast-fg);border-radius:14px;padding:10px 10px 10px 18px;display:flex;gap:12px;align-items:center;font-size:14px;max-width:calc(100vw - 32px);box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.toast .btn{background:transparent;color:var(--toast-fg);border-color:currentColor}
+.toast .btn:hover{opacity:.8}
 .toast:not(:has(.btn:not([hidden]))){padding-right:18px}
 
 /* ---------- modulo ---------- */
@@ -247,6 +263,9 @@ h1.split .line.dim{color:var(--accent)}
 .has-items h1.split .line.dim{display:none}
 
 .hero-art{margin-top:clamp(20px,4vw,40px);border-radius:24px;background:var(--panel);padding:clamp(18px,4vw,36px) 0;overflow:hidden;position:relative}
+.hero-art path[stroke="#8F97BA"]{stroke:var(--str-plain)}
+.hero-art path[stroke="#3355FF"]{stroke:var(--accent)}
+.hero-art path[stroke="#C9D1F2"]{stroke:var(--str-nut)}
 .hero-art svg{display:block;width:100%;height:clamp(140px,22vw,220px)}
 .hero-art .tag{margin:14px clamp(18px,3vw,28px) 0;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
 .hero-art .tag b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
@@ -307,7 +326,6 @@ h1.split .line.dim{color:var(--accent)}
   <div id="notes" role="status" aria-live="polite"></div>
 
   <section class="hero" aria-labelledby="heroTitle">
-    <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Offline · senza account · privato</p>
     <h1 id="heroTitle" class="split"><span class="line"><span>Il tuo rig.</span></span><span class="line dim"><span>Tutto in un posto.</span></span></h1>
     <div class="hero-cta">
       <button type="button" class="btn primary big" id="firstBtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Aggiungi il primo pezzo</button>
@@ -459,6 +477,6 @@ h1.split .line.dim{color:var(--accent)}
   </div>
 </dialog>
 
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
