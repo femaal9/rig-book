@@ -1,9 +1,9 @@
 // Rig Book service worker: l'app funziona anche offline.
 // Cambia VERSION a ogni rilascio: l'app mostra "Nuova versione disponibile".
-const VERSION = "rigbook-v17";
+const VERSION = "rigbook-v18";
 const SHELL = [
   "./", "index.html", "app.js", "manifest.webmanifest",
-  "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png",
+  "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png", "icons/favicon.svg", "icons/favicon-32.png",
   "fonts/rubik-var.woff2",
 ];
 const NET_TIMEOUT = 3500; // con rete lenta si usa la copia salvata
