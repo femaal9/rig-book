@@ -30,7 +30,7 @@
 /* Direzione: "road case di notte" — nero caldo, alone ambra, grana leggera, griglia bento,
    titoli condensati enormi, corde disegnate come elemento grafico principale. */
 :root{
-  --bg:#F3EEE5; --bg-glow:rgba(214,146,52,.22); --surface:#FFFDF8; --surface-2:#F8F3EA; --line:rgba(27,26,23,.10); --line-strong:rgba(27,26,23,.18);
+  --bg:#F3EEE5; --surface:#FFFDF8; --surface-2:#F8F3EA; --line:rgba(27,26,23,.10); --line-strong:rgba(27,26,23,.18);
   --field:#FFFFFF; --field-line:#8A8478; --fg:#1B1A17; --muted:#5C574D; --faint:#8A8478;
   --accent:#8A5A12; --amber:#E2A040; --amber-ink:#1B1406; --accent-soft:rgba(226,160,64,.16);
   --warn:#9A4A0A; --bad:#A3322A; --ok:#2F7A4B; --chip:rgba(27,26,23,.06); --chip-on:#1B1A17; --chip-on-ink:#F3EEE5;
@@ -43,14 +43,14 @@
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0F110F; --bg-glow:rgba(226,160,64,.18); --surface:#181B19; --surface-2:#1E2220; --line:rgba(255,248,235,.08); --line-strong:rgba(255,248,235,.16);
+  --bg:#0F110F; --surface:#181B19; --surface-2:#1E2220; --line:rgba(255,248,235,.08); --line-strong:rgba(255,248,235,.16);
   --field:#121513; --field-line:#6F776F; --fg:#F1ECE2; --muted:#A8A396; --faint:#7E7A70;
   --accent:#EAB062; --amber:#E8A640; --amber-ink:#1B1406; --accent-soft:rgba(232,166,64,.13);
   --warn:#F0A257; --bad:#EE8078; --ok:#6CCB8E; --chip:rgba(255,248,235,.06); --chip-on:#F1ECE2; --chip-on-ink:#0F110F;
   --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 18px 40px -20px rgba(0,0,0,.8);
   --grain-opacity:.07; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0F110F; --bg-glow:rgba(226,160,64,.18); --surface:#181B19; --surface-2:#1E2220; --line:rgba(255,248,235,.08); --line-strong:rgba(255,248,235,.16);
+  --bg:#0F110F; --surface:#181B19; --surface-2:#1E2220; --line:rgba(255,248,235,.08); --line-strong:rgba(255,248,235,.16);
   --field:#121513; --field-line:#6F776F; --fg:#F1ECE2; --muted:#A8A396; --faint:#7E7A70;
   --accent:#EAB062; --amber:#E8A640; --amber-ink:#1B1406; --accent-soft:rgba(232,166,64,.13);
   --warn:#F0A257; --bad:#EE8078; --ok:#6CCB8E; --chip:rgba(255,248,235,.06); --chip-on:#F1ECE2; --chip-on-ink:#0F110F;
@@ -63,8 +63,7 @@
 
 html{-webkit-text-size-adjust:100%;scroll-padding-top:90px}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
-  background-image:radial-gradient(1100px 520px at 85% -120px,var(--bg-glow),transparent 70%),radial-gradient(700px 400px at -10% 10%,var(--accent-soft),transparent 70%);background-repeat:no-repeat}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:var(--grain-opacity);
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 body:has(dialog[open]){overflow:hidden}
@@ -92,7 +91,7 @@ svg.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-widt
 .btn{border:1px solid var(--line-strong);background:var(--surface);color:var(--fg);padding:9px 14px;border-radius:999px;font-weight:500;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;line-height:1.2;transition:transform .15s,border-color .15s,background .15s;white-space:nowrap}
 .btn:hover{border-color:var(--fg)}
 .btn:active{transform:scale(.97)}
-.btn.primary{background:var(--amber);color:var(--amber-ink);border-color:transparent;font-weight:600;box-shadow:0 8px 24px -10px rgba(226,160,64,.8)}
+.btn.primary{background:var(--amber);color:var(--amber-ink);border-color:transparent;font-weight:600;}
 .btn.primary:hover{filter:brightness(1.05)}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
 .btn.ghost:hover{color:var(--fg);background:var(--chip)}
@@ -106,7 +105,7 @@ svg.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-widt
 .hero{padding:clamp(28px,6vw,64px) 0 clamp(20px,4vw,36px);display:grid;gap:18px}
 .eyebrow{display:flex;align-items:center;gap:8px;width:fit-content;max-width:100%;line-height:1.35;font-family:var(--f-mono);font-size:12px;letter-spacing:.04em;color:var(--muted);
   padding:6px 12px;border-radius:999px;border:1px solid var(--line-strong);background:color-mix(in srgb,var(--surface) 70%,transparent)}
-.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);}
 h1{font-family:var(--f-display);font-weight:700;font-size:clamp(54px,11vw,128px);line-height:.86;letter-spacing:-.005em;text-transform:uppercase;margin:0;text-wrap:balance}
 h1 em{font-style:normal;color:var(--accent)}
 h1 .outline{color:transparent;-webkit-text-stroke:1.5px var(--fg)}
@@ -119,8 +118,7 @@ h1 .outline{color:transparent;-webkit-text-stroke:1.5px var(--fg)}
 .tile small{display:block;padding-right:28px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-size:11px;font-weight:600}
 .tile b{display:block;font-family:var(--f-display);font-weight:600;font-size:clamp(34px,5vw,48px);line-height:1;margin-top:10px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .tile .hint{margin-top:6px}
-.tile.hero-tile{grid-column:span 2;grid-row:span 2;display:flex;flex-direction:column;justify-content:space-between;gap:18px;
-  background:radial-gradient(120% 90% at 100% 0%,var(--accent-soft),transparent 60%),var(--surface)}
+.tile.hero-tile{grid-column:span 2;grid-row:span 2;display:flex;flex-direction:column;justify-content:space-between;gap:18px;}
 .tile.hero-tile b{font-size:clamp(48px,8vw,84px)}
 .tile.warn b{color:var(--warn)}
 .tile .ico{position:absolute;right:16px;top:16px;color:var(--faint)}
@@ -161,7 +159,7 @@ h1 .outline{color:transparent;-webkit-text-stroke:1.5px var(--fg)}
 .feature h3{font-family:var(--f-display);text-transform:uppercase;font-size:24px;line-height:1;margin:0;letter-spacing:.01em}
 .feature p{margin:0;color:var(--muted);font-size:14px}
 .feature .badge{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
-.feature.big{grid-row:span 2;justify-content:space-between;background:radial-gradient(120% 80% at 0% 100%,var(--accent-soft),transparent 60%),var(--surface)}
+.feature.big{grid-row:span 2;justify-content:space-between;background:var(--surface)}
 .feature .strings-art{width:100%;height:auto;max-height:150px;color:var(--fg)}
 .example-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px;color:var(--muted);font-size:14px}
 
@@ -254,7 +252,7 @@ textarea{min-height:90px;resize:vertical}
   .actions .btn.ghost .txt{display:none}
   .actions .btn.ghost{padding:9px}
   /* pulsante + fisso in basso, come un'app */
-  #addBtn{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:15;padding:16px 20px;font-size:16px;box-shadow:0 14px 34px -10px rgba(226,160,64,.9),0 4px 12px rgba(0,0,0,.25)}
+  #addBtn{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:15;padding:16px 20px;font-size:16px;box-shadow:0 6px 16px rgba(0,0,0,.22)}
   .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
   .tile.hero-tile{grid-column:1/-1;grid-row:auto}
   .features{grid-template-columns:1fr}
@@ -459,6 +457,6 @@ textarea{min-height:90px;resize:vertical}
   </div>
 </dialog>
 
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
