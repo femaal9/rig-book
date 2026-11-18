@@ -8,8 +8,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#1C201E",
-  "theme_color": "#141716",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
   "categories": ["music", "productivity", "utilities"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

@@ -59,7 +59,7 @@ const ICONS = {
 const icon = k => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ICONS.other}</svg>`;
 
 // Pagina e script di versioni diverse (cache del vecchio service worker): ripara e ricarica una volta.
-if(!$("sort") || !$("notes") || !$("toast") || !$("sBars") || !$("topbar") || !$("subChips") || !$("f_sub")){
+if(!$("sort") || !$("notes") || !$("toast") || !$("sBars") || !$("topbar") || !$("subChips") || !$("f_sub") || !$("heroTitle")){
   let tried = false;
   try{ tried = sessionStorage.getItem("rigbook.repair") === "1"; sessionStorage.setItem("rigbook.repair", "1"); }catch{}
   const msg = document.createElement("p");
@@ -304,11 +304,12 @@ $("showSold").addEventListener("change", () => render());
 function renderStats(){
   const owned = items.filter(i => i.status !== "sold");
   const sold = items.filter(i => i.status === "sold");
-  $("sCount").textContent = owned.length;
-  $("sSpent").textContent = EUR(owned.reduce((s, i) => s + (i.price || 0), 0));
+  const num = n => String(n);
+  countUp($("sCount"), owned.length, num);
+  countUp($("sSpent"), owned.reduce((s, i) => s + (i.price || 0), 0), EUR);
   const str = owned.filter(i => CAT[i.cat]?.strings);
-  $("sStrings").textContent = str.length;
-  $("sOld").textContent = str.filter(isOld).length;
+  countUp($("sStrings"), str.length, num);
+  countUp($("sOld"), str.filter(isOld).length, num);
   const got = sold.reduce((s, i) => s + (i.soldPrice || 0), 0);
   $("sSoldWrap").hidden = !sold.some(i => i.soldPrice != null);
   $("sSold").textContent = EUR(got);
@@ -392,7 +393,7 @@ function renderList(){
   const list = $("list");
   if(!loaded) return;
   const head = `<h2 class="sr-only" id="listTitle">Inventario</h2>`;
-  if(!items.length){ list.innerHTML = head + `<div class="grid">${DEMO.map(card).join("")}</div>`; $("listCount").textContent = "esempi"; return; }
+  if(!items.length){ list.innerHTML = head + `<div class="grid">${DEMO.map(card).join("")}</div>`; $("listCount").textContent = "esempi"; revealCards(); return; }
   const q = $("search").value.trim().toLocaleLowerCase("it");
   const words = q ? q.split(/\s+/) : [];
   const shown = visibleBase()
@@ -404,6 +405,7 @@ function renderList(){
   list.innerHTML = head + (shown.length
     ? `<div class="grid">${shown.map(card).join("")}</div>`
     : `<div class="empty"><h2>Niente qui</h2><p>Nessun pezzo corrisponde a filtro e ricerca.</p></div>`);
+  revealCards();
 }
 $("list").addEventListener("click", e => {
   const b = e.target.closest(".card-open"); if(!b) return;
@@ -411,6 +413,9 @@ $("list").addEventListener("click", e => {
   demo ? openForm(null, demo.cat) : openForm(b.dataset.id);
 });
 
+function revealCards(){
+  document.querySelectorAll("#list .card").forEach(c => { c.classList.add("reveal"); reveal(c, c.querySelector(".card-open")?.dataset.id); });
+}
 function render(){ renderChips(); renderStats(); renderList(); checkBackupReminder(); }
 
 // ---------- modulo ----------
@@ -639,6 +644,40 @@ function checkBackupReminder(){
   showNote("backup", days == null ? "Non hai ancora fatto un backup. I dati sono solo su questo dispositivo: esportane uno ogni tanto."
     : `Ultimo backup ${days} giorni fa. Esportane uno nuovo per non perdere le modifiche.`,
     [{label:"Esporta backup", primary:true, run: exportBackup}, {label:"Più tardi", run(){ savePref("backupSnooze", Date.now()); hideNote("backup"); }}]);
+}
+
+// ---------- animazioni (spente con "Riduci movimento") ----------
+const motionOK = (() => { try{ return !matchMedia("(prefers-reduced-motion: reduce)").matches; }catch{ return true; } })();
+if(!motionOK) document.querySelectorAll("animate").forEach(a => a.remove());
+const revealer = motionOK && "IntersectionObserver" in window
+  ? new IntersectionObserver(es => es.forEach(e => { if(e.isIntersecting){ e.target.classList.add("in"); revealer.unobserve(e.target); } }), {rootMargin:"0px 0px -8% 0px", threshold:.08})
+  : null;
+const seenCards = new Set();
+function reveal(el, key){
+  if(!revealer || (key && seenCards.has(key))){ el.classList.add("in", "seen"); return; }
+  if(key) seenCards.add(key);
+  revealer.observe(el);
+}
+document.querySelectorAll(".reveal").forEach(el => reveal(el));
+// numeri che salgono la prima volta che compaiono
+const counted = new Set();
+function countUp(el, value, fmt){
+  const token = {};
+  el._count = token;                       // un nuovo valore annulla l'animazione in corso
+  if(!motionOK || counted.has(el.id) || !value){ el.textContent = fmt(value); counted.add(el.id); return; }
+  counted.add(el.id);
+  const t0 = performance.now(), dur = 1100;
+  const finish = () => { if(el._count === token){ el.textContent = fmt(value); el._count = null; } };
+  const step = t => {
+    if(el._count !== token) return;
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 4);
+    if(k >= 1) return finish();
+    el.textContent = fmt(Number.isInteger(value) ? Math.round(value * e) : Math.round(value * e * 100) / 100);
+    requestAnimationFrame(step);
+  };
+  el.textContent = fmt(0);
+  requestAnimationFrame(step);
+  setTimeout(finish, dur + 200);           // se il browser sospende le animazioni, il numero giusto arriva comunque
 }
 
 // barra in alto: bordo quando si scorre
