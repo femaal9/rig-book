@@ -3,7 +3,10 @@
 
 // ---------- costanti ----------
 const CATS = [
-  {k:"guitar", code:"GTR", label:"Chitarre", one:"Chitarra", strings:true},
+  {k:"guitar", code:"GTR", label:"Chitarre", one:"Chitarra", strings:true, subs:[
+    ["solid","Elettrica solid body"], ["semi","Semiacustica / hollow body"], ["acoustic","Acustica"], ["electroac","Elettroacustica"],
+    ["classical","Classica"], ["extended","7 / 8 corde"], ["baritone","Baritono"], ["twelve","12 corde"],
+    ["resonator","Resofonica / lap steel"], ["travel","Travel / mini"], ["other","Altro"]]},
   {k:"bass", code:"BAS", label:"Bassi", one:"Basso", strings:true},
   {k:"amp", code:"AMP", label:"Amplificatori", one:"Amplificatore"},
   {k:"fx", code:"FX", label:"Effetti e pedali", one:"Effetto / pedale", subs:[
