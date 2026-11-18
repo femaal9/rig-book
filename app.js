@@ -20,7 +20,8 @@ const CATS = [
     ["preamp","Preamp"], ["comp","Compressore"], ["eq","Equalizzatore"], ["strip","Channel strip"], ["limiter","Limiter"],
     ["reverb","Riverbero"], ["delay","Delay / multieffetto"], ["converter","Convertitore AD/DA"], ["summing","Summing mixer"],
     ["monctrl","Monitor controller"], ["di","DI box / reamp"], ["clock","Clock"], ["power","Alimentazione / rack"], ["other","Altro"]]},
-  {k:"monitor", code:"MON", label:"Monitor e cuffie", one:"Monitor / cuffie"},
+  {k:"monitor", code:"MON", label:"Monitor", one:"Monitor"},
+  {k:"phones", code:"PHN", label:"Cuffie", one:"Cuffie"},
   {k:"mic", code:"MIC", label:"Microfoni", one:"Microfono"},
   {k:"keys", code:"KEY", label:"Tastiere e synth", one:"Tastiera / synth"},
   {k:"computer", code:"CPU", label:"Computer", one:"Computer"},
@@ -57,7 +58,8 @@ const ICONS = {
   amp:'<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18"/><circle cx="12" cy="14.5" r="3"/><path d="M6.5 7h.01M9.5 7h.01"/>',
   fx:'<rect x="6" y="2.5" width="12" height="19" rx="2"/><circle cx="9.5" cy="6.5" r="1.2"/><circle cx="14.5" cy="6.5" r="1.2"/><circle cx="12" cy="15.5" r="2.6"/>',
   interface:'<rect x="2" y="7" width="20" height="10" rx="2"/><circle cx="7" cy="12" r="2"/><circle cx="13" cy="12" r="2"/><path d="M17.5 10.5v3M19.5 10.5v3"/>',
-  monitor:'<path d="M3 15v-3a9 9 0 0 1 18 0v3"/><rect x="2.5" y="14" width="4.5" height="7" rx="1.5"/><rect x="17" y="14" width="4.5" height="7" rx="1.5"/>',
+  monitor:'<rect x="5" y="2.5" width="14" height="19" rx="2"/><circle cx="12" cy="7" r="1.6"/><circle cx="12" cy="14.5" r="3.8"/><circle cx="12" cy="14.5" r="1"/>',
+  phones:'<path d="M3 15v-3a9 9 0 0 1 18 0v3"/><rect x="2.5" y="14" width="4.5" height="7" rx="1.5"/><rect x="17" y="14" width="4.5" height="7" rx="1.5"/>',
   mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/>',
   keys:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M7 6v7M12 6v7M17 6v7M2 13h20"/>',
   outboard:'<rect x="2" y="6" width="20" height="12" rx="1.5"/><path d="M4.5 9v6M19.5 9v6"/><circle cx="8.5" cy="12" r="1.7"/><circle cx="13" cy="12" r="1.7"/><path d="M16.5 10.3v3.4"/>',
@@ -292,7 +294,7 @@ function renderChips(){
   if(filter !== "all" && !counts[filter]) filter = "all";
   const list = [{k:"all", code:"ALL", label:"Tutto", n:base.length}, ...CATS.filter(c => counts[c.k]).map(c => ({...c, n:counts[c.k]}))];
   // adesivi: con il case vuoto ogni adesivo aggiunge un pezzo di quella categoria
-  const SHORT = {guitar:"Chitarre", bass:"Bassi", amp:"Ampli", fx:"Pedali", interface:"Schede audio", outboard:"Outboard", monitor:"Monitor", mic:"Microfoni", keys:"Synth", computer:"Computer", other:"Altro", all:"Tutto"};
+  const SHORT = {guitar:"Chitarre", bass:"Bassi", amp:"Ampli", fx:"Pedali", interface:"Schede audio", outboard:"Outboard", monitor:"Monitor", phones:"Cuffie", mic:"Microfoni", keys:"Synth", computer:"Computer", other:"Altro", all:"Tutto"};
   const sticker = (c, n, i) => `<button type="button" class="chip st cat-${esc(c.k)}" data-k="${esc(c.k)}" aria-pressed="${filter === c.k}" style="--n:${i}">${icon(c.k === "all" ? "other" : c.k)}<span class="n" aria-hidden="true">${n}</span><span class="l">${esc(SHORT[c.k] || c.label)}</span><span class="sr-only">, ${n} ${n === 1 ? "pezzo" : "pezzi"}</span></button>`;
   $("chips").innerHTML = !items.length
     ? CATS.map(c => c.k).map((k, i) => `<button type="button" class="chip st cat-${k}" data-add="${k}" style="--n:${i}">${icon(k)}<span class="n" aria-hidden="true">+</span><span class="l">${esc(SHORT[k])}</span><span class="sr-only">: aggiungi</span></button>`).join("")

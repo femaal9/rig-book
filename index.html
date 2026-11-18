@@ -61,7 +61,7 @@
 /* colore dell'adesivo (--c) e del suo testo (--ci) per categoria */
 .cat-guitar{--c:#FF5A36;--ci:#1D1B22} .cat-bass{--c:#FF6FA8;--ci:#1D1B22} .cat-amp{--c:#21B573;--ci:#1D1B22}
 .cat-fx{--c:#FFC83D;--ci:#1D1B22} .cat-interface{--c:#22B8D6;--ci:#1D1B22} .cat-outboard{--c:#2F6BFF;--ci:#FFFFFF}
-.cat-monitor{--c:#7C8CFF;--ci:#1D1B22} .cat-mic{--c:#B26BFF;--ci:#1D1B22} .cat-keys{--c:#FF9A2E;--ci:#1D1B22}
+.cat-monitor{--c:#7C8CFF;--ci:#1D1B22} .cat-phones{--c:#A3D94B;--ci:#1D1B22} .cat-mic{--c:#B26BFF;--ci:#1D1B22} .cat-keys{--c:#FF9A2E;--ci:#1D1B22}
 .cat-computer{--c:#9AA3B5;--ci:#1D1B22} .cat-other{--c:#C9C2B4;--ci:#1D1B22} .cat-all{--c:#1D1B22;--ci:#FFFFFF}
 
 html{-webkit-text-size-adjust:100%}
@@ -112,7 +112,12 @@ h1.split .line.dim{display:none}
 .hero-hint{margin:0;color:var(--muted);font-size:15px;max-width:42ch}
 
 /* gli adesivi: filtri per categoria */
-.chips.stickers{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:14px;padding:8px 8px 12px;margin:0 -4px;position:relative;overflow:visible;flex:none}
+.chips.stickers{display:flex;flex-wrap:nowrap;gap:16px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;position:relative;flex:none;
+  padding:14px max(16px,env(safe-area-inset-right,0px)) 18px max(16px,env(safe-area-inset-left,0px));scroll-padding-inline:max(16px,env(safe-area-inset-left,0px));
+  margin:0 calc(-1 * max(16px,env(safe-area-inset-right,0px))) 0 calc(-1 * max(16px,env(safe-area-inset-left,0px)));
+  -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent)}
+.chips.stickers::-webkit-scrollbar{display:none}
+.chips.stickers .chip.st{flex:0 0 112px;width:112px;scroll-snap-align:start}
 .chip.st{all:unset;box-sizing:border-box;cursor:pointer;aspect-ratio:1;border-radius:28px;background:var(--c);color:var(--ci);
   display:grid;place-items:center;align-content:center;gap:3px;text-align:center;padding:10px 6px;
   box-shadow:0 0 0 5px var(--sticker-edge),var(--sticker-shadow);transform:rotate(var(--r,0deg));transition:transform .25s cubic-bezier(.3,1.6,.5,1),box-shadow .2s}
@@ -282,7 +287,7 @@ textarea{min-height:96px;resize:vertical}
 @media (max-width:640px){
   .actions .btn.ghost .txt{display:none}
   .actions .btn.ghost{padding:9px}
-  .chips.stickers{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .chips.stickers .chip.st{flex-basis:98px;width:98px}
   .chip.st{border-radius:24px}
   .chip.st svg.i{width:26px;height:26px}
   .features{grid-template-columns:1fr}
@@ -487,6 +492,6 @@ textarea{min-height:96px;resize:vertical}
   </div>
 </dialog>
 
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>

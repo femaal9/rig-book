@@ -1,6 +1,6 @@
 # Rig Book
 
-Un'app web per segnare il tuo gear musicale e da studio: chitarre, bassi, ampli, pedali, schede audio, outboard (preamp, compressori, EQ…), monitor, microfoni, computer.
+Un'app web per segnare il tuo gear musicale e da studio: chitarre, bassi, ampli, pedali, schede audio, outboard (preamp, compressori, EQ…), monitor, cuffie, microfoni, computer.
 
 Per chitarre e bassi puoi segnare scalatura, corde, accordatura e la data dell'ultimo cambio corde: l'app ti avvisa quando sono passati più di 4 mesi.
 
