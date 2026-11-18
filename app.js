@@ -35,8 +35,23 @@ const BACKUP_REMIND_DAYS = 30;
 
 const $ = id => document.getElementById(id);
 
+// icone per categoria (tratto, 24×24)
+const ICONS = {
+  guitar:'<path d="M14.5 9.5 20 4"/><path d="m18.5 2.5 3 3"/><path d="M10.2 9.8a3.6 3.6 0 0 0-5 1.3 3.1 3.1 0 0 0-2.3 3c0 3 4.4 7.5 7.4 7.4a3.1 3.1 0 0 0 3-2.3 3.6 3.6 0 0 0 1.3-5c-.6-1-.3-2.3.6-3.1"/><circle cx="9.3" cy="14.7" r="1.4"/>',
+  bass:'<path d="M12.8 11.2 21 3"/><path d="m19.2 1.5 3.3 3.3"/><path d="M9 11a3.4 3.4 0 0 0-4.7 1.2A2.9 2.9 0 0 0 2.2 15c0 2.8 4.1 7 6.9 6.9a2.9 2.9 0 0 0 2.8-2.1 3.4 3.4 0 0 0 1.2-4.7c-.5-.9-.3-2.1.6-2.9"/><path d="m7.5 16.5 2-2"/>',
+  amp:'<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18"/><circle cx="12" cy="14.5" r="3"/><path d="M6.5 7h.01M9.5 7h.01"/>',
+  fx:'<rect x="6" y="2.5" width="12" height="19" rx="2"/><circle cx="9.5" cy="6.5" r="1.2"/><circle cx="14.5" cy="6.5" r="1.2"/><circle cx="12" cy="15.5" r="2.6"/>',
+  interface:'<rect x="2" y="7" width="20" height="10" rx="2"/><circle cx="7" cy="12" r="2"/><circle cx="13" cy="12" r="2"/><path d="M17.5 10.5v3M19.5 10.5v3"/>',
+  monitor:'<path d="M3 15v-3a9 9 0 0 1 18 0v3"/><rect x="2.5" y="14" width="4.5" height="7" rx="1.5"/><rect x="17" y="14" width="4.5" height="7" rx="1.5"/>',
+  mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/>',
+  keys:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M7 6v7M12 6v7M17 6v7M2 13h20"/>',
+  computer:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  other:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/>',
+};
+const icon = k => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ICONS.other}</svg>`;
+
 // Pagina e script di versioni diverse (cache del vecchio service worker): ripara e ricarica una volta.
-if(!$("sort") || !$("notes") || !$("toast")){
+if(!$("sort") || !$("notes") || !$("toast") || !$("sBars") || !$("topbar")){
   let tried = false;
   try{ tried = sessionStorage.getItem("rigbook.repair") === "1"; sessionStorage.setItem("rigbook.repair", "1"); }catch{}
   const msg = document.createElement("p");
@@ -259,7 +274,7 @@ function renderChips(){
   if(filter !== "all" && !counts[filter]) filter = "all";
   const list = [{k:"all", code:"ALL", label:"Tutto", n:base.length}, ...CATS.filter(c => counts[c.k]).map(c => ({...c, n:counts[c.k]}))];
   $("chips").innerHTML = list.map(c =>
-    `<button type="button" class="chip" data-k="${esc(c.k)}" aria-pressed="${filter === c.k}"><span class="code" aria-hidden="true">${esc(c.code)}</span>${esc(c.label)} <span class="code"><span class="sr-only">, </span>${c.n}</span></button>`).join("");
+    `<button type="button" class="chip ${c.k === "all" ? "" : "cat-" + esc(c.k)}" data-k="${esc(c.k)}" aria-pressed="${filter === c.k}">${c.k === "all" ? "" : `<span class="dotc" aria-hidden="true"></span>`}${esc(c.label)} <span class="code"><span class="sr-only">, </span>${c.n}</span></button>`).join("");
 }
 $("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if(!b) return; filter = b.dataset.k; render(); b.isConnected || document.querySelector(`.chip[data-k="${CSS.escape(filter)}"]`)?.focus(); });
 $("search").addEventListener("input", () => renderList());
@@ -276,7 +291,21 @@ function renderStats(){
   const got = sold.reduce((s, i) => s + (i.soldPrice || 0), 0);
   $("sSoldWrap").hidden = !sold.some(i => i.soldPrice != null);
   $("sSold").textContent = EUR(got);
-  $("exampleNote").hidden = !(loaded && !items.length);
+  $("sOldTile").classList.toggle("warn", str.some(isOld));
+  // spesa per categoria (barre)
+  const byCat = {}; owned.forEach(i => { if(i.price) byCat[i.cat] = (byCat[i.cat] || 0) + i.price; });
+  const top = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const max = top[0]?.[1] || 1;
+  $("sBars").innerHTML = top.map(([k, v]) => `<div class="bar cat-${esc(k)}"><span>${esc(CAT[k]?.label || "Altro")}</span><i><span style="width:${Math.max(2, Math.round(v / max * 100))}%"></span></i><em>${esc(EUR(v))}</em></div>`).join("");
+  $("sBars").hidden = !top.length;
+  const last = Number(prefs.lastBackup) || 0;
+  const bd = last ? Math.floor((Date.now() - last) / 86400000) : null;
+  $("sBackup").textContent = bd == null ? "mai" : bd === 0 ? "oggi" : bd === 1 ? "ieri" : `${bd} gg fa`;
+  const empty = loaded && !items.length;
+  $("exampleNote").hidden = !empty;
+  $("exampleBanner").hidden = !empty;
+  document.body.classList.toggle("is-empty", empty);
+  document.body.classList.toggle("has-items", loaded && items.length > 0);
 }
 
 // ---------- schede ----------
@@ -287,7 +316,25 @@ const DEMO = [
 ];
 const titleOf = i => [i.brand, i.model].filter(Boolean).join(" ") || (CAT[i.cat] || CAT.other).one;
 
-function card(i){
+// corde disegnate: spessore proporzionale alla scalatura ("10-46", "45-105")
+function wires(i){
+  const bass = i.cat === "bass";
+  const m = /(\d+(?:[.,]\d+)?)\s*[-–\/]\s*(\d+(?:[.,]\d+)?)/.exec(i.gauge || "");
+  let lo = m ? parseFloat(m[1].replace(",", ".")) : (bass ? 45 : 10), hi = m ? parseFloat(m[2].replace(",", ".")) : (bass ? 105 : 46);
+  if(lo < 1) lo *= 1000; if(hi < 1) hi *= 1000;          // ".010-.046"
+  if(!(lo > 0 && hi > lo && hi < 200)){ lo = bass ? 45 : 10; hi = bass ? 105 : 46; }
+  const n = bass ? 4 : 6, h = 58, gap = h / (n + 1);
+  let out = "";
+  for(let k = 0; k < n; k++){
+    const g = lo * Math.pow(hi / lo, k / (n - 1));          // progressione geometrica come i set reali
+    const w = (0.6 + (g / hi) * (bass ? 3 : 2.6)).toFixed(2);
+    const wound = bass || g >= 17;
+    out += `<line x1="0" y1="${(gap * (k + 1)).toFixed(1)}" x2="300" y2="${(gap * (k + 1)).toFixed(1)}" stroke="${wound ? "var(--c)" : "currentColor"}" stroke-opacity="${wound ? 1 : .6}" stroke-width="${w}" stroke-linecap="round"/>`;
+  }
+  return `<svg class="wire" viewBox="0 0 300 ${h}" preserveAspectRatio="none" aria-hidden="true">${out}</svg>`;
+}
+
+function card(i, n = 0){
   const c = CAT[i.cat] || CAT.other;
   const title = titleOf(i);
   const sub = [i.finish, i.year && `del ${i.year}`].filter(Boolean).join(" · ");
@@ -297,7 +344,13 @@ function card(i){
   let gauge = "";
   if(c.strings && (i.gauge || i.sbrand || i.tuning || i.changed)){
     const d = daysSince(i.changed);
-    gauge = `<div class="gauge"><b>${esc(i.gauge || "—")}</b><span>${esc([i.sbrand, i.tuning].filter(Boolean).join(" · "))}</span>${d != null ? `<span class="age ${d > OLD_DAYS ? "old" : ""}">${esc(ageText(d))}${d > OLD_DAYS ? " · da cambiare" : ""}</span>` : ""}</div>`;
+    const lvl = d == null || d < 0 ? "" : d > OLD_DAYS ? "old" : d > OLD_DAYS / 2 ? "mid" : "";
+    const pct = d == null || d < 0 ? 0 : Math.max(3, Math.min(100, Math.round(d / OLD_DAYS * 100)));
+    gauge = `<div class="strings">
+      <div class="strings-head"><b>${esc(i.gauge || "—")}</b><span>${esc([i.sbrand, i.tuning].filter(Boolean).join(" · "))}</span></div>
+      ${wires(i)}
+      ${d != null ? `<div class="age ${lvl}"><span>${esc(ageText(d))}${d > OLD_DAYS ? " · da cambiare" : ""}</span>${d >= 0 ? `<div class="track"><span style="width:${pct}%"></span></div>` : ""}</div>` : ""}
+    </div>`;
   }
   const rows = [];
   if(i.buyYear) rows.push(["Anno di acquisto", i.buyYear]);
@@ -306,8 +359,8 @@ function card(i){
   if(i.cond) rows.push(["Condizioni", COND[i.cond]]);
   if(i.status === "sold" && i.soldPrice != null) rows.push(["Venduto per", EUR(i.soldPrice)]);
   if(i.serial) rows.push(["N/S", i.serial]);
-  return `<article class="card ${i.status === "sold" ? "sold" : ""}">
-    <div class="card-top"><span class="stencil">${esc(c.code)} · ${esc(c.one)}</span><span class="pills">${pills.join("")}</span></div>
+  return `<article class="card cat-${esc(c.k)}${i.status === "sold" ? " sold" : ""}${i.example ? " example" : ""}" style="--n:${Math.min(n, 12)}">
+    <div class="card-top"><div class="cat"><span class="ic">${icon(c.k)}</span><span class="stencil">${esc(c.code)} · ${esc(c.one)}</span></div><span class="pills">${pills.join("")}</span></div>
     <h3 class="name"><button type="button" class="card-open" data-id="${esc(i.id)}">${esc(title)}${i.example ? `<span class="sr-only"> (esempio: tocca per aggiungere un pezzo)</span>` : ""}</button>${sub ? `<small>${esc(sub)}</small>` : ""}</h3>
     ${gauge}
     ${rows.length ? `<dl class="specs">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
@@ -318,13 +371,14 @@ function renderList(){
   const list = $("list");
   if(!loaded) return;
   const head = `<h2 class="sr-only" id="listTitle">Inventario</h2>`;
-  if(!items.length){ list.innerHTML = head + `<div class="grid">${DEMO.map(card).join("")}</div>`; return; }
+  if(!items.length){ list.innerHTML = head + `<div class="grid">${DEMO.map(card).join("")}</div>`; $("listCount").textContent = "esempi"; return; }
   const q = $("search").value.trim().toLocaleLowerCase("it");
   const words = q ? q.split(/\s+/) : [];
   const shown = visibleBase()
     .filter(i => filter === "all" || i.cat === filter)
     .filter(i => { if(!words.length) return true; const h = haystack(i); return words.every(w => h.includes(w)); })
     .sort(SORTS[sortKey] || SORTS.cat);
+  $("listCount").textContent = shown.length === 1 ? "1 pezzo" : `${shown.length} pezzi`;
   list.innerHTML = head + (shown.length
     ? `<div class="grid">${shown.map(card).join("")}</div>`
     : `<div class="empty"><h2>Niente qui</h2><p>Nessun pezzo corrisponde a filtro e ricerca.</p></div>`);
@@ -475,7 +529,7 @@ $("delBtn").addEventListener("click", () => {
 function backupJson(){
   return JSON.stringify({app:"rig-book", version:1, exportedAt:new Date().toISOString(), items}, null, 2);
 }
-function markBackup(){ savePref("lastBackup", Date.now()); hideNote("backup"); }
+function markBackup(){ savePref("lastBackup", Date.now()); hideNote("backup"); renderStats(); }
 function showBackupText(data){ $("bkText").value = data; $("bkCopy").textContent = "Copia"; $("bkDlg").showModal(); }
 function exportBackup(){
   if(!items.length){ toast("Non c'è ancora niente da esportare."); return; }
@@ -554,6 +608,9 @@ function checkBackupReminder(){
     : `Ultimo backup ${days} giorni fa. Esportane uno nuovo per non perdere le modifiche.`,
     [{label:"Esporta backup", primary:true, run: exportBackup}, {label:"Più tardi", run(){ savePref("backupSnooze", Date.now()); hideNote("backup"); }}]);
 }
+
+// barra in alto: bordo quando si scorre
+{ const tb = $("topbar"); const onScroll = () => tb.classList.toggle("scrolled", scrollY > 8); addEventListener("scroll", onScroll, {passive:true}); onScroll(); }
 
 // ---------- avvio ----------
 try{ localStorage.setItem("rigbook.test", "1"); localStorage.removeItem("rigbook.test"); }
