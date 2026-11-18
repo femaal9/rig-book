@@ -1,6 +1,6 @@
 // Rig Book service worker: l'app funziona anche offline.
 // Cambia VERSION a ogni rilascio: l'app mostra "Nuova versione disponibile".
-const VERSION = "rigbook-v9";
+const VERSION = "rigbook-v10";
 const SHELL = [
   "./", "index.html", "app.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png",

@@ -6,7 +6,12 @@ const CATS = [
   {k:"guitar", code:"GTR", label:"Chitarre", one:"Chitarra", strings:true},
   {k:"bass", code:"BAS", label:"Bassi", one:"Basso", strings:true},
   {k:"amp", code:"AMP", label:"Amplificatori", one:"Amplificatore"},
-  {k:"fx", code:"FX", label:"Effetti e pedali", one:"Effetto / pedale"},
+  {k:"fx", code:"FX", label:"Effetti e pedali", one:"Effetto / pedale", subs:[
+    ["overdrive","Overdrive"], ["distortion","Distorsore"], ["fuzz","Fuzz"], ["boost","Boost"], ["comp","Compressore"],
+    ["delay","Delay"], ["reverb","Riverbero"], ["mod","Modulazione (chorus, phaser, flanger)"], ["trem","Tremolo / vibrato"],
+    ["wah","Wah / filtro"], ["pitch","Octaver / pitch"], ["eq","Equalizzatore"], ["volume","Volume / espressione"],
+    ["looper","Looper"], ["tuner","Accordatore"], ["multi","Multieffetto"], ["amp","Simulatore d'ampli / preamp"],
+    ["power","Alimentatore"], ["switch","Switcher / buffer"], ["other","Altro"]]},
   {k:"interface", code:"I/O", label:"Schede audio", one:"Scheda audio"},
   {k:"outboard", code:"OUT", label:"Outboard", one:"Outboard", subs:[
     ["preamp","Preamp"], ["comp","Compressore"], ["eq","Equalizzatore"], ["strip","Channel strip"], ["limiter","Limiter"],
