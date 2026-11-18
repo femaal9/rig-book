@@ -67,7 +67,7 @@ const ICONS = {
 const icon = k => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ICONS.other}</svg>`;
 
 // Pagina e script di versioni diverse (cache del vecchio service worker): ripara e ricarica una volta.
-if(!$("sort") || !$("notes") || !$("toast") || !$("sBars") || !$("topbar") || !$("subChips") || !$("f_sub") || !$("heroTitle")){
+if(!$("sort") || !$("notes") || !$("toast") || !$("sBars") || !$("topbar") || !$("subChips") || !$("f_sub") || !$("heroTitle") || !$("helpDlg")){
   let tried = false;
   try{ tried = sessionStorage.getItem("rigbook.repair") === "1"; sessionStorage.setItem("rigbook.repair", "1"); }catch{}
   const msg = document.createElement("p");
@@ -292,11 +292,10 @@ function renderChips(){
   if(filter !== "all" && !counts[filter]) filter = "all";
   const list = [{k:"all", code:"ALL", label:"Tutto", n:base.length}, ...CATS.filter(c => counts[c.k]).map(c => ({...c, n:counts[c.k]}))];
   // adesivi: con il case vuoto ogni adesivo aggiunge un pezzo di quella categoria
-  const STARTERS = ["guitar","bass","amp","fx","outboard","mic"];
   const SHORT = {guitar:"Chitarre", bass:"Bassi", amp:"Ampli", fx:"Pedali", interface:"Schede audio", outboard:"Outboard", monitor:"Monitor", mic:"Microfoni", keys:"Synth", computer:"Computer", other:"Altro", all:"Tutto"};
   const sticker = (c, n, i) => `<button type="button" class="chip st cat-${esc(c.k)}" data-k="${esc(c.k)}" aria-pressed="${filter === c.k}" style="--n:${i}">${icon(c.k === "all" ? "other" : c.k)}<span class="n" aria-hidden="true">${n}</span><span class="l">${esc(SHORT[c.k] || c.label)}</span><span class="sr-only">, ${n} ${n === 1 ? "pezzo" : "pezzi"}</span></button>`;
   $("chips").innerHTML = !items.length
-    ? STARTERS.map((k, i) => `<button type="button" class="chip st cat-${k}" data-add="${k}" style="--n:${i}">${icon(k)}<span class="n" aria-hidden="true">+</span><span class="l">${esc(SHORT[k])}</span><span class="sr-only">: aggiungi</span></button>`).join("")
+    ? CATS.map(c => c.k).map((k, i) => `<button type="button" class="chip st cat-${k}" data-add="${k}" style="--n:${i}">${icon(k)}<span class="n" aria-hidden="true">+</span><span class="l">${esc(SHORT[k])}</span><span class="sr-only">: aggiungi</span></button>`).join("")
     : list.map((c, i) => sticker(c, c.n, i)).join("");
   $("chips").classList.toggle("filtered", filter !== "all");
   // sottocategorie della categoria scelta (es. Outboard → Preamp, Compressore…)
@@ -343,7 +342,6 @@ function renderStats(){
   $("sBackup").textContent = bd == null ? "mai" : bd === 0 ? "oggi" : bd === 1 ? "ieri" : `${bd} gg fa`;
   const empty = loaded && !items.length;
   $("exampleNote").hidden = !empty;
-  $("exampleBanner").hidden = !empty;
   document.body.classList.toggle("is-empty", empty);
   document.body.classList.toggle("has-items", loaded && items.length > 0);
 }
@@ -703,6 +701,15 @@ setTimeout(() => $("chips").classList.remove("intro"), 2000);
 // barra in alto: bordo quando si scorre
 { const tb = $("topbar"); const onScroll = () => tb.classList.toggle("scrolled", scrollY > 8); addEventListener("scroll", onScroll, {passive:true}); onScroll(); }
 
+// ---------- come funziona: da solo al primo avvio, poi dal pulsante ----------
+function openHelp(){ if(!$("helpDlg").open) $("helpDlg").showModal(); $("helpOk").focus(); }
+$("helpBtn").addEventListener("click", openHelp);
+const markHelpSeen = () => { if(!prefs.helpSeen) savePref("helpSeen", Date.now()); };
+function closeHelp(){ markHelpSeen(); $("helpDlg").close(); }
+$("helpClose").addEventListener("click", closeHelp);
+$("helpOk").addEventListener("click", closeHelp);
+$("helpDlg").addEventListener("close", markHelpSeen);   // anche chiudendo con Esc
+
 // ---------- avvio ----------
 try{ localStorage.setItem("rigbook.test", "1"); localStorage.removeItem("rigbook.test"); }
 catch{ storageBroken = true; showNote("storage", "Questo browser non permette di salvare i dati (forse sei in navigazione privata). Quello che aggiungi andrà perso."); }
@@ -724,6 +731,11 @@ if(!standalone && !storageBroken){
       notes.get("install").onDismiss = () => savePref("installHintDismissed", Date.now());
     }
   }
+}
+
+if(!prefs.helpSeen){
+  if(items.length) savePref("helpSeen", Date.now());
+  else setTimeout(() => { if(!$("dlg").open) openHelp(); }, motionOK ? 900 : 0);
 }
 
 // ---------- aggiornamenti dell'app ----------

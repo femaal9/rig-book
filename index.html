@@ -158,6 +158,12 @@ h1.split .line.dim{display:none}
 .feature h3{font-size:17px;font-weight:700;margin:0;letter-spacing:-.015em;line-height:1.3}
 .feature p{margin:0;color:var(--muted);font-size:14px}
 .example-banner{margin:0 0 14px;color:var(--muted);font-size:14px}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:16px}
+.steps li{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+.steps .num{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:var(--c);color:var(--ci);font-weight:800;font-size:18px;transform:rotate(-5deg);box-shadow:0 0 0 3px var(--sticker-edge),0 3px 0 3px rgba(0,0,0,.08)}
+.steps li:nth-child(even) .num{transform:rotate(4deg)}
+.steps h3{margin:2px 0 2px;font-size:17px;font-weight:700;letter-spacing:-.015em}
+.steps p{margin:0;color:var(--muted);font-size:14.5px}
 
 /* ---------- barra lista ---------- */
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
@@ -308,6 +314,7 @@ textarea{min-height:96px;resize:vertical}
       <span>Rig Book</span>
     </a>
     <div class="actions">
+      <button type="button" class="btn ghost" id="helpBtn" aria-label="Come funziona"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7M12 17h.01"/></svg><span class="txt">Come funziona</span></button>
       <button type="button" class="btn ghost" id="importBtn" aria-label="Importa backup"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 10l5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span class="txt">Importa</span></button>
       <button type="button" class="btn ghost" id="exportBtn" aria-label="Esporta backup"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span class="txt">Esporta backup</span></button>
       <button type="button" class="btn primary" id="addBtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Aggiungi pezzo</span></button>
@@ -346,15 +353,6 @@ textarea{min-height:96px;resize:vertical}
       <div class="bars" id="sBars" aria-label="Spesa per categoria"></div>
     </section>
 
-    <section class="features" id="exampleNote" hidden aria-labelledby="featTitle">
-      <h2 id="featTitle" class="reveal">Tutto quello che ti serve.<br><span>Niente di più.</span></h2>
-      <div class="feature reveal cat-guitar"><div class="badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg></div><h3>Corde sotto controllo</h3><p>Scalatura, marca, accordatura e data del cambio. Ti avvisa quando sono passati più di 4 mesi.</p></div>
-      <div class="feature reveal cat-amp" style="--n:1"><div class="badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg></div><h3>Quanto vale il tuo rig</h3><p>Prezzi, anni e provenienza. Il totale e la spesa per categoria si aggiornano da soli.</p></div>
-      <div class="feature reveal cat-outboard" style="--n:2"><div class="badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="1.5"/><path d="M4.5 9v6M19.5 9v6"/><circle cx="8.5" cy="12" r="1.7"/><circle cx="13" cy="12" r="1.7"/><path d="M16.5 10.3v3.4"/></svg></div><h3>Anche l'outboard</h3><p>Preamp, compressori, EQ, convertitori: ognuno con il suo tipo, da filtrare con un tocco.</p></div>
-      <div class="feature reveal cat-bass" style="--n:3"><div class="badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><h3>Tuo e basta</h3><p>Niente account né server: tutto resta sul telefono. Il backup è un file che tieni tu.</p></div>
-      <div class="feature reveal cat-interface" style="--n:4"><div class="badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01M2 9a14 14 0 0 1 20 0"/></svg></div><h3>Anche offline</h3><p>Installala sulla schermata Home: si apre come un'app, anche in sala prove senza campo.</p></div>
-      <div class="feature reveal cat-fx" style="--n:5"><div class="badge"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></div><h3>Trovi tutto</h3><p>Cerca per marca, modello, note o stato, filtra per categoria e ordina come vuoi.</p></div>
-    </section>
 
     <div class="toolbar">
       <div class="section-title"><h2>Il case</h2><span id="listCount"></span></div>
@@ -370,7 +368,7 @@ textarea{min-height:96px;resize:vertical}
       <label class="toggle"><input type="checkbox" id="showSold"> Mostra venduti</label>
     </div>
 
-    <p class="example-banner" id="exampleBanner" hidden>Queste sono schede d'esempio: spariscono appena aggiungi il primo pezzo.</p>
+    <p class="example-banner" id="exampleNote" hidden>Queste sono schede d'esempio: spariscono appena aggiungi il primo pezzo.</p>
     <section id="list" aria-labelledby="listTitle">
       <h2 class="sr-only" id="listTitle">Inventario</h2>
       <div class="empty" id="loading">
@@ -456,6 +454,25 @@ textarea{min-height:96px;resize:vertical}
   </form>
 </dialog>
 
+<dialog id="helpDlg" class="help" aria-labelledby="helpTitle">
+  <div class="dlg">
+    <div class="dlg-head">
+      <h2 id="helpTitle">Come funziona</h2>
+      <button type="button" class="close" id="helpClose" aria-label="Chiudi">×</button>
+    </div>
+    <div class="dlg-body">
+      <ol class="steps">
+        <li class="cat-guitar"><span class="num" aria-hidden="true">1</span><div><h3>Aggiungi i tuoi pezzi</h3><p>Tocca “Aggiungi pezzo” oppure un adesivo. Scegli la categoria e scrivi marca e modello: il resto è facoltativo.</p></div></li>
+        <li class="cat-fx"><span class="num" aria-hidden="true">2</span><div><h3>Tieni d'occhio le corde</h3><p>Per chitarre e bassi segna scalatura e data del cambio. Dopo 4 mesi la scheda ti avvisa che è ora di cambiarle.</p></div></li>
+        <li class="cat-outboard"><span class="num" aria-hidden="true">3</span><div><h3>Filtra con gli adesivi</h3><p>Tocca un adesivo per vedere solo quella categoria. Chitarre, pedali e outboard si filtrano anche per tipo.</p></div></li>
+        <li class="cat-amp"><span class="num" aria-hidden="true">4</span><div><h3>Fai un backup ogni tanto</h3><p>I dati restano solo su questo dispositivo. “Esporta backup” salva un file da tenere al sicuro o da importare su un altro telefono.</p></div></li>
+      </ol>
+      <p class="hint">Funziona anche senza rete: aggiungila alla schermata Home e si apre come un'app.</p>
+    </div>
+    <div class="dlg-foot"><div class="right"><button type="button" class="btn primary" id="helpOk">Ho capito</button></div></div>
+  </div>
+</dialog>
+
 <dialog id="bkDlg" aria-labelledby="bkTitle">
   <div class="dlg">
     <div class="dlg-head">
@@ -470,6 +487,6 @@ textarea{min-height:96px;resize:vertical}
   </div>
 </dialog>
 
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>
