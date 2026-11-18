@@ -288,8 +288,14 @@ function renderChips(){
   const counts = {}; base.forEach(i => counts[i.cat] = (counts[i.cat] || 0) + 1);
   if(filter !== "all" && !counts[filter]) filter = "all";
   const list = [{k:"all", code:"ALL", label:"Tutto", n:base.length}, ...CATS.filter(c => counts[c.k]).map(c => ({...c, n:counts[c.k]}))];
-  $("chips").innerHTML = list.map(c =>
-    `<button type="button" class="chip ${c.k === "all" ? "" : "cat-" + esc(c.k)}" data-k="${esc(c.k)}" aria-pressed="${filter === c.k}">${c.k === "all" ? "" : `<span class="dotc" aria-hidden="true"></span>`}${esc(c.label)} <span class="code"><span class="sr-only">, </span>${c.n}</span></button>`).join("");
+  // adesivi: con il case vuoto ogni adesivo aggiunge un pezzo di quella categoria
+  const STARTERS = ["guitar","bass","amp","fx","outboard","mic"];
+  const SHORT = {guitar:"Chitarre", bass:"Bassi", amp:"Ampli", fx:"Pedali", interface:"Schede audio", outboard:"Outboard", monitor:"Monitor", mic:"Microfoni", keys:"Synth", computer:"Computer", other:"Altro", all:"Tutto"};
+  const sticker = (c, n, i) => `<button type="button" class="chip st cat-${esc(c.k)}" data-k="${esc(c.k)}" aria-pressed="${filter === c.k}" style="--n:${i}">${icon(c.k === "all" ? "other" : c.k)}<span class="n" aria-hidden="true">${n}</span><span class="l">${esc(SHORT[c.k] || c.label)}</span><span class="sr-only">, ${n} ${n === 1 ? "pezzo" : "pezzi"}</span></button>`;
+  $("chips").innerHTML = !items.length
+    ? STARTERS.map((k, i) => `<button type="button" class="chip st cat-${k}" data-add="${k}" style="--n:${i}">${icon(k)}<span class="n" aria-hidden="true">+</span><span class="l">${esc(SHORT[k])}</span><span class="sr-only">: aggiungi</span></button>`).join("")
+    : list.map((c, i) => sticker(c, c.n, i)).join("");
+  $("chips").classList.toggle("filtered", filter !== "all");
   // sottocategorie della categoria scelta (es. Outboard → Preamp, Compressore…)
   const cat = filter !== "all" ? CAT[filter] : null;
   const subCounts = {};
@@ -302,7 +308,11 @@ function renderChips(){
     `<button type="button" class="chip sub cat-${esc(filter)}" data-s="${esc(k)}" aria-pressed="${subFilter === k}">${esc(l)} <span class="code"><span class="sr-only">, </span>${n}</span></button>`).join("") : "";
 }
 $("subChips").addEventListener("click", e => { const b = e.target.closest(".chip"); if(!b) return; subFilter = b.dataset.s; render(); document.querySelector(`#subChips .chip[data-s="${CSS.escape(subFilter)}"]`)?.focus(); });
-$("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if(!b) return; filter = b.dataset.k; subFilter = "all"; render(); b.isConnected || document.querySelector(`.chip[data-k="${CSS.escape(filter)}"]`)?.focus(); });
+$("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if(!b) return;
+  if(b.dataset.add){ openForm(null, b.dataset.add); return; }
+  const tb = document.querySelector(".toolbar");
+  if(tb && tb.getBoundingClientRect().top > innerHeight * .7) tb.scrollIntoView({behavior: motionOK ? "smooth" : "auto", block: "start"});
+  filter = b.dataset.k; subFilter = "all"; render(); b.isConnected || document.querySelector(`.chip[data-k="${CSS.escape(filter)}"]`)?.focus(); });
 $("search").addEventListener("input", () => renderList());
 $("showSold").addEventListener("change", () => render());
 
@@ -684,6 +694,8 @@ function countUp(el, value, fmt){
   requestAnimationFrame(step);
   setTimeout(finish, dur + 200);           // se il browser sospende le animazioni, il numero giusto arriva comunque
 }
+
+setTimeout(() => $("chips").classList.remove("intro"), 2000);
 
 // barra in alto: bordo quando si scorre
 { const tb = $("topbar"); const onScroll = () => tb.classList.toggle("scrolled", scrollY > 8); addEventListener("scroll", onScroll, {passive:true}); onScroll(); }
