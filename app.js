@@ -54,6 +54,7 @@ const $ = id => document.getElementById(id);
 
 // icone per categoria (tratto, 24×24)
 const ICONS = {
+  calendar:'<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="m9 15 2 2 4-4"/>',
   guitar:'<path d="M14.5 9.5 20 4"/><path d="m18.5 2.5 3 3"/><path d="M10.2 9.8a3.6 3.6 0 0 0-5 1.3 3.1 3.1 0 0 0-2.3 3c0 3 4.4 7.5 7.4 7.4a3.1 3.1 0 0 0 3-2.3 3.6 3.6 0 0 0 1.3-5c-.6-1-.3-2.3.6-3.1"/><circle cx="9.3" cy="14.7" r="1.4"/>',
   bass:'<path d="M12.8 11.2 21 3"/><path d="m19.2 1.5 3.3 3.3"/><path d="M9 11a3.4 3.4 0 0 0-4.7 1.2A2.9 2.9 0 0 0 2.2 15c0 2.8 4.1 7 6.9 6.9a2.9 2.9 0 0 0 2.8-2.1 3.4 3.4 0 0 0 1.2-4.7c-.5-.9-.3-2.1.6-2.9"/><path d="m7.5 16.5 2-2"/>',
   amp:'<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18"/><circle cx="12" cy="14.5" r="3"/><path d="M6.5 7h.01M9.5 7h.01"/>',
@@ -236,6 +237,14 @@ function ageText(days){
   return y === 1 ? "cambiate più di un anno fa" : `cambiate ${y} anni fa`;
 }
 const isOld = i => { const d = daysSince(i.changed); return d != null && d > OLD_DAYS; };
+// promemoria nel calendario per il giorno in cui le corde diventano vecchie (evento .ics creato dal server)
+function remindLink(i, d){
+  if(!SYNC_API || i.example || i.status === "sold" || d == null || d < 0 || d >= OLD_DAYS) return "";
+  const t = localDate(i.changed); t.setDate(t.getDate() + OLD_DAYS);
+  const due = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;
+  const q = new URLSearchParams({t: titleOf(i), d: due, c: i.changed, g: i.gauge || "", b: i.sbrand || "", id: i.id});
+  return `<a class="remind" href="${esc(SYNC_API + "ics?" + q)}" aria-label="Promemoria nel calendario per cambiare le corde di ${esc(titleOf(i))} il ${esc(due.split("-").reverse().join("/"))}">${icon("calendar")}Promemoria</a>`;
+}
 
 // ---------- avvisi persistenti e toast ----------
 // costruiti con textContent: nessun testo finisce mai in innerHTML
@@ -400,7 +409,7 @@ function card(i, n = 0){
     gauge = `<div class="strings">
       <div class="strings-head"><b>${esc(i.gauge || "—")}</b><span>${esc([i.sbrand, i.tuning].filter(Boolean).join(" · "))}</span></div>
       ${wires(i)}
-      ${d != null ? `<div class="age ${lvl}"><span>${esc(ageText(d))}${d > OLD_DAYS ? " · da cambiare" : ""}</span>${d >= 0 ? `<div class="track"><span style="width:${pct}%"></span></div>` : ""}</div>` : ""}
+      ${d != null ? `<div class="age ${lvl}"><div class="age-row"><span>${esc(ageText(d))}${d > OLD_DAYS ? " · da cambiare" : ""}</span>${remindLink(i, d)}</div>${d >= 0 ? `<div class="track"><span style="width:${pct}%"></span></div>` : ""}</div>` : ""}
     </div>`;
   }
   const rows = [];
