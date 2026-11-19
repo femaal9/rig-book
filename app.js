@@ -1,6 +1,6 @@
 "use strict";
 // Rig Book — inventario del gear. I dati stanno su questo dispositivo (localStorage);
-// con l'account facoltativo si sincronizzano anche online (vedi "account e sincronizzazione").
+// collegando telefono e PC si sincronizzano anche online (vedi "telefono e PC").
 
 // ---------- costanti ----------
 const CATS = [
@@ -724,136 +724,86 @@ $("helpClose").addEventListener("click", closeHelp);
 $("helpOk").addEventListener("click", closeHelp);
 $("helpDlg").addEventListener("close", markHelpSeen);   // anche chiudendo con Esc
 
-// ---------- account e sincronizzazione (facoltativi) ----------
-// Senza account tutto resta su questo dispositivo, come sempre. Con l'account (Firebase Authentication e
-// Firestore, chiamati via REST: niente librerie esterne) ogni pezzo è un documento users/{uid}/items/{id}.
-// Vince la modifica più recente (updatedAt); un pezzo eliminato resta come "lapide" così l'eliminazione
-// arriva anche sugli altri dispositivi.
-const FIREBASE = {apiKey: "", projectId: ""};
-const API = {
-  auth: "https://identitytoolkit.googleapis.com/v1/accounts:",
-  token: "https://securetoken.googleapis.com/v1/token",
-  db: "https://firestore.googleapis.com/v1/",
-};
-const cloudOn = /^[A-Za-z0-9_-]{20,80}$/.test(FIREBASE.apiKey) && /^[a-z0-9-]{4,40}$/.test(FIREBASE.projectId);
-const AUTH_KEY = "rigbook.auth.v1", SYNC_KEY = "rigbook.sync.v1";
-const okUid = s => typeof s === "string" && /^[A-Za-z0-9]{1,128}$/.test(s);
+// ---------- telefono e PC: sincronizzazione senza account (facoltativa) ----------
+// Il primo dispositivo chiede al server un conto anonimo e riceve un token segreto (resta qui; sul server
+// c'è solo la sua impronta). Per collegarne un altro si genera un codice di 10 minuti, anche come link o QR:
+// l'altro dispositivo lo scambia con un token suo. Niente email, niente password.
+// Ogni pezzo è una riga sul server: vince la modifica più recente (updatedAt), le eliminazioni restano come lapidi.
+const SYNC_API = "";   // indirizzo del server, es. "https://rig-book.pages.dev/api/" (vuoto = funzione nascosta)
+const syncOn = /^(https:\/\/[a-z0-9.-]+)?\/api\/$/.test(SYNC_API);
+const LINK_KEY = "rigbook.link.v1", SYNC_KEY = "rigbook.sync.v1";
+const okAcct = s => typeof s === "string" && /^[A-Za-z0-9_-]{16,64}$/.test(s);
+const okToken = s => typeof s === "string" && /^[A-Za-z0-9_-]{32,128}$/.test(s);
+const CODE_RE = /^[A-HJ-NP-Z2-9]{8}$/;
+const cleanCode = s => String(s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+const showCode = c => c.slice(0, 4) + "-" + c.slice(4);
 const readJSON = k => { try{ const v = JSON.parse(localStorage.getItem(k) || "null"); return v && typeof v === "object" && !Array.isArray(v) ? v : null; }catch{ return null; } };
 const writeJSON = (k, v) => { try{ v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); return true; }catch{ return false; } };
-// risposte che vogliono dire "la sessione non vale più: bisogna rifare l'accesso"
-const SESSION_GONE = new Set(["TOKEN_EXPIRED", "USER_DISABLED", "USER_NOT_FOUND", "INVALID_REFRESH_TOKEN", "INVALID_GRANT_TYPE", "MISSING_REFRESH_TOKEN", "USER_MISMATCH", "INVALID_ID_TOKEN"]);
 
-async function call(url, opt = {}, ms = 20000){
+async function api(path, body, token, ms = 30000){
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms);
   try{
-    const res = await fetch(url, {...opt, signal: ctl.signal, cache: "no-store", credentials: "omit", referrerPolicy: "strict-origin"});
+    const headers = {"Content-Type": "application/json"};
+    if(token) headers.Authorization = "Bearer " + token;
+    const res = await fetch(SYNC_API + path, {method: "POST", headers, body: JSON.stringify(body || {}), signal: ctl.signal, cache: "no-store", credentials: "omit"});
     let j = null;
     try{ j = await res.json(); }catch{}
-    if(!res.ok){
-      const e = (Array.isArray(j) ? j[0] : j)?.error || {};
-      const m = typeof e.message === "string" ? e.message : "";
-      throw {code: (/^[A-Z_]{3,}/.exec(m) || [])[0] || (typeof e.status === "string" && e.status) || "HTTP_" + res.status, status: res.status};
-    }
+    if(!res.ok) throw {code: typeof j?.error === "string" ? j.error : "HTTP_" + res.status, status: res.status};
+    if(!j || typeof j !== "object") throw {code: "BAD_RESPONSE"};
     return j;
   }catch(e){ throw e && e.code ? e : {code: "NETWORK"}; }
   finally{ clearTimeout(timer); }
 }
-const postJSON = (url, body, headers = {}, ms) => call(url, {method: "POST", headers: {"Content-Type": "application/json", ...headers}, body: JSON.stringify(body)}, ms);
-
-async function authCall(mode, email, password){
-  const j = await postJSON(`${API.auth}${mode === "up" ? "signUp" : "signInWithPassword"}?key=${FIREBASE.apiKey}`, {email, password, returnSecureToken: true});
-  if(!okUid(j?.localId) || typeof j.refreshToken !== "string" || typeof j.idToken !== "string") throw {code: "BAD_RESPONSE"};
-  return {uid: j.localId, email: String(j.email || email).slice(0, 200), refresh: j.refreshToken, id: j.idToken, exp: Date.now() + (Number(j.expiresIn) || 3600) * 1000};
-}
-
-// gli id dei documenti Firestore non possono contenere "/" né essere "." o "__x__": quelli strani diventano esadecimale
-const remoteId = id => /^[A-Za-z0-9_-]{1,100}$/.test(id) && !/^__.*__$/.test(id) ? id
-  : "x" + Array.from(new TextEncoder().encode(id), b => b.toString(16).padStart(2, "0")).join("");
-// readTime di Firestore (con nanosecondi) → cursore per la prossima lettura, con 10 s di margine
-function cursorFrom(rt){
-  const ms = typeof rt === "string" ? Date.parse(rt.replace(/\.\d+Z$/, "Z")) : NaN;
-  return Number.isFinite(ms) ? new Date(ms - 10000).toISOString() : null;
-}
 
 const cloud = {
-  user: null,          // {uid, email, refresh, id, exp}; refresh = null → bisogna rifare l'accesso
-  state: "off",        // off | idle | syncing | ok | offline | error | relogin
+  user: null,          // {acct, token}
+  state: "off",        // off | idle | syncing | ok | offline | error
   err: "", last: 0, running: null, again: false, soonTimer: 0, retryTimer: 0, busy: false,
 
   load(){
-    const u = cloudOn ? readJSON(AUTH_KEY) : null;
-    this.user = u && okUid(u.uid) && typeof u.email === "string"
-      ? {uid: u.uid, email: u.email.slice(0, 200), refresh: typeof u.refresh === "string" ? u.refresh : null, id: typeof u.id === "string" ? u.id : null, exp: Number(u.exp) || 0}
-      : null;
-    this.state = !this.user ? "off" : !this.user.refresh ? "relogin" : ["off", "relogin"].includes(this.state) ? "idle" : this.state;
-    this.setState(this.state);
+    const u = syncOn ? readJSON(LINK_KEY) : null;
+    this.user = u && okAcct(u.acct) && okToken(u.token) ? {acct: u.acct, token: u.token} : null;
+    this.setState(!this.user ? "off" : this.state === "off" ? "idle" : this.state);
   },
-  setUser(u){ this.user = u; writeJSON(AUTH_KEY, u); },
-  live(){ return !!this.user?.refresh; },
+  setUser(u){ this.user = u; writeJSON(LINK_KEY, u); },
+  live(){ return !!this.user; },
   setState(s){
     this.state = s;
     clearTimeout(this.retryTimer);
     if(s === "error") this.retryTimer = setTimeout(() => this.sync(), 60000);
-    if(s === "relogin") showNote("relogin", "La sessione è scaduta: accedi di nuovo per sincronizzare i tuoi pezzi.", [{label: "Accedi", primary: true, run: openAccount}]);
-    else hideNote("relogin");
     drawAccount();
   },
-
-  // stato della sincronizzazione su questo dispositivo, legato all'account
-  meta(){
-    const m = readJSON(SYNC_KEY), uid = this.user?.uid;
-    const ok = m && m.uid === uid;
-    const nums = o => { const d = dict({}); if(o && typeof o === "object") for(const k of Object.keys(o)) if(okId(k) && Number.isFinite(o[k])) d[k] = o[k]; return d; };
-    return {uid, synced: ok ? nums(m.synced) : dict({}), tomb: ok ? nums(m.tomb) : dict({}), cursor: ok && typeof m.cursor === "string" ? m.cursor : null};
+  // il server non riconosce più questo dispositivo (scollegato o dati online cancellati da un altro)
+  unlinked(){
+    this.user = null;
+    writeJSON(LINK_KEY, null); writeJSON(SYNC_KEY, null);
+    this.setState("off");
+    showNote("unlinked", "Questo dispositivo non è più collegato: i pezzi restano qui, ma non si sincronizzano più. Per collegarlo di nuovo tocca “Collega”.", [], true);
   },
-  saveMeta(m){ if(m.uid && m.uid === this.user?.uid) writeJSON(SYNC_KEY, {uid: m.uid, synced: m.synced, tomb: m.tomb, cursor: m.cursor}); },
+
+  // stato della sincronizzazione su questo dispositivo, legato al conto
+  meta(){
+    const m = readJSON(SYNC_KEY), acct = this.user?.acct;
+    const ok = m && m.acct === acct;
+    const nums = o => { const d = dict({}); if(o && typeof o === "object") for(const k of Object.keys(o)) if(okId(k) && Number.isFinite(o[k])) d[k] = o[k]; return d; };
+    return {acct, synced: ok ? nums(m.synced) : dict({}), tomb: ok ? nums(m.tomb) : dict({}), cursor: ok && Number.isSafeInteger(m.cursor) ? m.cursor : 0};
+  },
+  saveMeta(m){ if(m.acct && m.acct === this.user?.acct) writeJSON(SYNC_KEY, {acct: m.acct, synced: m.synced, tomb: m.tomb, cursor: m.cursor}); },
   tombOf(id){ return this.user ? this.meta().tomb[id] || 0 : 0; },
   bury(id, ts){ if(!this.user) return; const m = this.meta(); m.tomb[id] = Math.max(Date.now(), (Number(ts) || 0) + 1); this.saveMeta(m); },
   forget(id){ if(!this.user) return; const m = this.meta(); if(has(m.tomb, id)){ delete m.tomb[id]; this.saveMeta(m); } },
-  // ci sono modifiche fatte qui che non sono ancora online?
-  dirty(){
-    if(!this.user) return false;
-    const m = this.meta(), o = store.read();
-    return Object.keys(o).some(id => okId(id) && (Number(o[id]?.updatedAt) || 0) > (m.synced[id] || 0))
-      || Object.keys(m.tomb).some(id => !has(o, id) && m.tomb[id] > (m.synced[id] || 0));
-  },
-
-  async token(force){
-    const u = this.user;
-    if(!u?.refresh) throw {code: "MISSING_REFRESH_TOKEN"};
-    if(!force && u.id && u.exp - Date.now() > 300000) return u.id;
-    const j = await call(`${API.token}?key=${FIREBASE.apiKey}`, {method: "POST", headers: {"Content-Type": "application/x-www-form-urlencoded"}, body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(u.refresh)});
-    if(this.user?.uid !== u.uid) throw {code: "ABORTED"};
-    if(j?.user_id !== u.uid || typeof j.id_token !== "string") throw {code: "USER_MISMATCH"};
-    this.setUser({...this.user, id: j.id_token, refresh: typeof j.refresh_token === "string" ? j.refresh_token : u.refresh, exp: Date.now() + (Number(j.expires_in) || 3600) * 1000});
-    return j.id_token;
-  },
-  base(){ return `projects/${FIREBASE.projectId}/databases/(default)/documents`; },
-  async db(path, body){
-    const go = t => postJSON(API.db + this.base() + path, body, {Authorization: "Bearer " + t}, 30000);
-    try{ return await go(await this.token()); }
-    catch(e){ if(e.status === 401) return go(await this.token(true)); throw e; }
-  },
-  async pull(uid, cursor){
-    const q = {from: [{collectionId: "items"}]};
-    if(cursor) q.where = {fieldFilter: {field: {fieldPath: "s"}, op: "GREATER_THAN_OR_EQUAL", value: {timestampValue: cursor}}};
-    const res = await this.db(`/users/${uid}:runQuery`, {structuredQuery: q});
-    const rows = new Map(), names = [];
-    let readTime = null;
-    for(const r of Array.isArray(res) ? res : []){
-      if(typeof r?.readTime === "string") readTime = r.readTime;
-      const doc = r?.document, f = doc?.fields;
-      if(!f) continue;
-      if(typeof doc.name === "string") names.push(doc.name);
-      const id = f.i?.stringValue, t = Number(f.t?.integerValue), del = f.x?.booleanValue === true;
-      if(!okId(id) || !Number.isFinite(t)) continue;
-      let d = null;
-      if(!del){ try{ d = JSON.parse(f.d?.stringValue || "null"); }catch{} if(!d || typeof d !== "object" || Array.isArray(d)) continue; }
-      const prev = rows.get(id);
-      if(!prev || t > prev.t) rows.set(id, {t, del, d});
+  pending(m, o){
+    const out = [];
+    for(const id of Object.keys(o)){
+      if(!okId(id)) continue;
+      const t = Number(o[id]?.updatedAt) || 0;
+      if(t > (m.synced[id] || 0)){ const d = normalize(o[id]); if(d){ d.updatedAt = t; out.push({id, t, d}); } }
     }
-    return {rows, names, readTime};
+    for(const id of Object.keys(m.tomb)) if(!has(o, id) && m.tomb[id] > (m.synced[id] || 0)) out.push({id, t: m.tomb[id], del: true});
+    return out;
   },
+  // ci sono modifiche fatte qui che non sono ancora online?
+  dirty(){ return !!this.user && this.pending(this.meta(), store.read()).length > 0; },
 
   // una sola sincronizzazione alla volta; le richieste arrivate nel frattempo ne fanno partire un'altra
   sync(){
@@ -868,256 +818,293 @@ const cloud = {
 
   async once(){
     const u = this.user;
-    if(!u?.refresh) return;
+    if(!u) return;
     if(navigator.onLine === false){ this.setState("offline"); return; }
     this.setState("syncing");
-    const same = () => this.user?.uid === u.uid && !this.busy;
+    const same = () => this.user?.token === u.token && !this.busy;
     try{
-      // 1) cosa è cambiato online dall'ultima volta
-      const {rows, readTime} = await this.pull(u.uid, this.meta().cursor);
-      if(!same()) return;
+      // 1) manda quello che è cambiato qui (a pezzi da 400) e ricevi quello che è cambiato altrove
+      const since = this.meta().cursor, out = this.pending(this.meta(), store.read()), rows = [];
+      let cursor = since, i = 0;
+      do{
+        const part = out.slice(i, i + 400); i += 400;
+        const res = await api("sync", {since, changes: part.map(p => p.del ? {id: p.id, t: p.t, del: true} : {id: p.id, t: p.t, d: p.d})}, u.token);
+        if(!same()) return;
+        if(!Array.isArray(res.rows) || !Number.isSafeInteger(res.cursor)) throw {code: "BAD_RESPONSE"};
+        rows.push(...res.rows);
+        cursor = res.cursor;
+        const m = this.meta();
+        for(const p of part) if(!((m.synced[p.id] || 0) > p.t)) m.synced[p.id] = p.t;
+        this.saveMeta(m);
+      }while(i < out.length);
+
+      // 2) applica le versioni più nuove arrivate dal server
+      const best = new Map();
+      for(const r of rows){
+        if(!r || !okId(r.id) || !Number.isSafeInteger(r.t)) continue;
+        const del = r.del === true;
+        if(!del && (!r.d || typeof r.d !== "object" || Array.isArray(r.d))) continue;
+        const prev = best.get(r.id);
+        if(!prev || r.t > prev.t) best.set(r.id, {t: r.t, del, d: r.d});
+      }
       const m = this.meta(), o = store.read();
       let changed = false;
-      for(const [id, r] of rows){
+      for(const [id, r] of best){
         const local = has(o, id) ? Number(o[id]?.updatedAt) || 0 : m.tomb[id] || 0;
         if(r.t > local){
           if(r.del){ if(has(o, id)){ delete o[id]; changed = true; } m.tomb[id] = r.t; }
           else{ const d = normalize(r.d); if(!d) continue; d.updatedAt = r.t; o[id] = d; delete m.tomb[id]; changed = true; }
         }
-        m.synced[id] = r.t;
+        if(r.t > (m.synced[id] || 0)) m.synced[id] = r.t;
       }
       if(changed) store.check(store.write(o));
-      m.cursor = cursorFrom(readTime) || m.cursor;
+      m.cursor = cursor;
       this.saveMeta(m);
       if(changed) store.load();
-
-      // 2) cosa è cambiato qui e non è ancora online
-      const out = [];
-      for(const id of Object.keys(o)){
-        if(!okId(id)) continue;
-        const t = Number(o[id]?.updatedAt) || 0;
-        if(t > (m.synced[id] || 0)){ const d = normalize(o[id]); if(d){ d.updatedAt = t; out.push({id, t, d}); } }
-      }
-      for(const id of Object.keys(m.tomb)) if(!has(o, id) && m.tomb[id] > (m.synced[id] || 0)) out.push({id, t: m.tomb[id], del: true});
-      for(let i = 0; i < out.length; i += 200){
-        const part = out.slice(i, i + 200);
-        await this.db(":commit", {writes: part.map(p => ({
-          update: {name: `${this.base()}/users/${u.uid}/items/${remoteId(p.id)}`, fields: {
-            i: {stringValue: p.id}, t: {integerValue: String(p.t)}, x: {booleanValue: !!p.del}, d: {stringValue: p.del ? "" : JSON.stringify(p.d)}}},
-          updateTransforms: [{fieldPath: "s", setToServerValue: "REQUEST_TIME"}],
-        }))});
-        if(!same()) return;
-        const mm = this.meta();
-        for(const p of part) if(!((mm.synced[p.id] || 0) > p.t)) mm.synced[p.id] = p.t;
-        this.saveMeta(mm);
-      }
       this.last = Date.now(); this.err = "";
+      hideNote("unlinked");
       this.setState("ok");
       checkBackupReminder();
     }catch(e){
       if(!same()) return;
-      if(e.code === "NETWORK") this.setState("offline");
-      else if(SESSION_GONE.has(e.code)){ this.setUser({...this.user, refresh: null, id: null}); this.setState("relogin"); }
-      else{ this.err = e.code === "readonly" || e.code === "quota_exceeded" || e.code === "local_failed" ? errText(e) : String(e.code || "errore"); this.setState("error"); }
+      if(e.code === "UNLINKED") this.unlinked();
+      else if(e.code === "NETWORK") this.setState("offline");
+      else{ this.err = ["readonly", "quota_exceeded", "local_failed"].includes(e.code) ? errText(e) : String(e.code || "errore"); this.setState("error"); }
     }
   },
 
-  // accesso riuscito: i pezzi già su questo dispositivo vengono aggiunti all'account
+  // collegato: i pezzi già su questo dispositivo vengono aggiunti a quelli online
   start(u){
     const m = readJSON(SYNC_KEY);
-    if(m && m.uid !== u.uid){
-      // erano i pezzi di un altro account (sessione scaduta e accesso con un'altra email): non mischiarli
-      if(m.uid && m.synced && Object.keys(m.synced).length) store.write(dict({}));
-      writeJSON(SYNC_KEY, null);
-    }
+    if(m && m.acct !== u.acct) writeJSON(SYNC_KEY, null);
     this.setUser(u);
-    hideNote("install");
-    if(!readJSON(SYNC_KEY)) writeJSON(SYNC_KEY, {uid: u.uid, synced: {}, tomb: {}, cursor: null});
+    if(!readJSON(SYNC_KEY)) writeJSON(SYNC_KEY, {acct: u.acct, synced: {}, tomb: {}, cursor: 0});
+    hideNote("install"); hideNote("unlinked");
     this.setState("idle");
-    store.load();
     return this.sync();
   },
-  // esci: i pezzi restano nell'account e spariscono da questo dispositivo
-  async logout(force){
+  async create(){
+    const j = await api("account", {});
+    if(!okAcct(j.acct) || !okToken(j.token)) throw {code: "BAD_RESPONSE"};
+    await this.start({acct: j.acct, token: j.token});
+  },
+  async join(code){
+    const j = await api("join", {code});
+    if(!okAcct(j.acct) || !okToken(j.token)) throw {code: "BAD_RESPONSE"};
+    await this.start({acct: j.acct, token: j.token});
+  },
+  async newCode(){
+    try{
+      const j = await api("code", {}, this.user.token);
+      if(!CODE_RE.test(j.code) || !Number.isFinite(j.expires)) throw {code: "BAD_RESPONSE"};
+      return j;
+    }catch(e){ if(e.code === "UNLINKED") this.unlinked(); throw e; }
+  },
+  // scollega: i pezzi restano su questo dispositivo
+  async leave(force){
     if(!force && this.dirty()){ await this.sync(); if(this.dirty()) return false; }
+    const t = this.user?.token;
     clearTimeout(this.soonTimer);
     this.user = null;
-    writeJSON(AUTH_KEY, null); writeJSON(SYNC_KEY, null);
-    store.write(dict({}));
+    writeJSON(LINK_KEY, null); writeJSON(SYNC_KEY, null);
     this.setState("off");
-    store.load();
+    if(t) api("leave", {}, t).catch(() => {});
     return true;
   },
-  // elimina account: cancella tutto quello che è online; su questo dispositivo i pezzi restano
-  async deleteAccount(password){
+  // cancella la copia online e scollega tutti i dispositivi (ognuno tiene la sua copia)
+  async erase(){
     const u = this.user;
     if(!u) return;
     this.busy = true;
     try{
       await this.running;
-      const fresh = await authCall("in", u.email, password);
-      if(fresh.uid !== u.uid) throw {code: "USER_MISMATCH"};
-      this.setUser(fresh);
-      const {names} = await this.pull(u.uid, null);
-      for(let i = 0; i < names.length; i += 200) await this.db(":commit", {writes: names.slice(i, i + 200).map(n => ({delete: n}))});
-      await postJSON(`${API.auth}delete?key=${FIREBASE.apiKey}`, {idToken: fresh.id});
+      try{ await api("erase", {}, u.token); }catch(e){ if(e.code !== "UNLINKED") throw e; }
       this.user = null;
-      writeJSON(AUTH_KEY, null); writeJSON(SYNC_KEY, null);
+      writeJSON(LINK_KEY, null); writeJSON(SYNC_KEY, null);
       this.setState("off");
-      store.load();
     }finally{ this.busy = false; }
   },
 };
 
-// ---------- finestra account ----------
-let authMode = "in", authBusy = false, logoutArmed = false;
-const AUTH_MSG = {
-  EMAIL_EXISTS: "Esiste già un account con questa email: scegli “Accedi”.",
-  INVALID_LOGIN_CREDENTIALS: "Email o password sbagliate.",
-  INVALID_PASSWORD: "Email o password sbagliate.",
-  EMAIL_NOT_FOUND: "Email o password sbagliate.",
-  INVALID_EMAIL: "Questa email non sembra valida.",
-  MISSING_PASSWORD: "Scrivi la password.",
-  WEAK_PASSWORD: "Password troppo debole: usa almeno 8 caratteri.",
-  PASSWORD_DOES_NOT_MEET_REQUIREMENTS: "Password troppo debole: usa almeno 8 caratteri, con lettere e numeri.",
-  TOO_MANY_ATTEMPTS_TRY_LATER: "Troppi tentativi. Riprova tra qualche minuto.",
-  USER_DISABLED: "Questo account è stato disattivato.",
-  OPERATION_NOT_ALLOWED: "L'accesso con email non è attivo. Riprova più tardi.",
+// ---------- finestra "Telefono e PC" ----------
+let linkBusy = false, leaveArmed = false, eraseArmed = false, pairTimer = 0, qrLoad = null;
+const LINK_MSG = {
+  BAD_CODE: "Codice sbagliato o scaduto. Generane uno nuovo sull'altro dispositivo.",
+  RATE: "Troppi tentativi. Riprova tra un'ora.",
   NETWORK: "Nessuna connessione. Riprova quando sei online.",
+  FULL: "Hai raggiunto il limite di pezzi sincronizzati.",
+  NO_DB: "Il server non è ancora pronto. Riprova più tardi.",
 };
-const authText = code => AUTH_MSG[code] || "Non è andata. Riprova tra poco.";
+const linkText = code => LINK_MSG[code] || "Non è andata. Riprova tra poco.";
 function stateText(){
   const s = cloud.state;
   if(s === "syncing") return "Sincronizzo…";
   if(s === "ok"){ const t = new Date(cloud.last); return `Sincronizzato alle ${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`; }
   if(s === "offline") return "Offline: sincronizzo appena torni online";
   if(s === "error") return `Sincronizzazione non riuscita (${cloud.err}). Riprovo tra un minuto.`;
-  if(s === "relogin") return "Sessione scaduta: accedi di nuovo";
   return "In attesa…";
 }
 function drawAccount(){
   const b = $("accountBtn");
-  b.hidden = !cloudOn;
-  if(!cloudOn) return;
-  const u = cloud.user, live = cloud.live(), s = cloud.state;
-  const tone = !u ? "" : !live || s === "error" ? "bad" : s === "ok" ? "ok" : "busy";
-  b.querySelector(".txt").textContent = u ? "Account" : "Accedi";
+  b.hidden = !syncOn;
+  if(!syncOn) return;
+  const live = cloud.live(), s = cloud.state;
+  const tone = !live ? "" : s === "error" ? "bad" : s === "ok" ? "ok" : "busy";
+  b.querySelector(".txt").textContent = live ? "Collegato" : "Collega";
   const dot = b.querySelector(".dot");
-  dot.className = "dot " + tone; dot.hidden = !u;
-  b.setAttribute("aria-label", !u ? "Accedi" : "Account: " + stateText());
-
-  $("authForm").hidden = live; $("acctView").hidden = !live;
-  if(u && !live){ authMode = "in"; if(!$("a_email").value) $("a_email").value = u.email; }
-  $("authTitle").textContent = live ? "Il tuo account" : u ? "Accedi di nuovo" : authMode === "up" ? "Crea account" : "Accedi";
-  $("authSeg").hidden = !!u;
-  $("modeIn").setAttribute("aria-pressed", String(authMode === "in"));
-  $("modeUp").setAttribute("aria-pressed", String(authMode === "up"));
-  $("authSubmit").textContent = authMode === "up" ? "Crea account" : "Accedi";
-  $("a_pass").setAttribute("autocomplete", authMode === "up" ? "new-password" : "current-password");
-  $("forgotBtn").hidden = authMode === "up";
-  $("passHint").hidden = authMode !== "up";
-  $("authHint").textContent = u && !live ? "La sessione è scaduta: scrivi di nuovo la password per riprendere la sincronizzazione."
-    : items.length ? "Con un account ritrovi i tuoi pezzi sul telefono e sul PC. Quelli che hai già qui vengono aggiunti all'account."
-    : "Con un account ritrovi i tuoi pezzi sul telefono e sul PC.";
+  dot.className = "dot " + tone; dot.hidden = !live;
+  b.setAttribute("aria-label", live ? "Telefono e PC: " + stateText() : "Collega telefono e PC");
+  $("linkOff").hidden = live; $("linkOn").hidden = !live;
+  $("joinHint").hidden = !items.length;
   if(live){
-    $("acctEmail").textContent = u.email;
-    $("acctAvatar").textContent = (u.email.trim()[0] || "?").toUpperCase();
     $("acctDot").className = "dot " + tone;
     $("acctStateText").textContent = stateText();
     $("syncBtn").disabled = s === "syncing";
-  }
+  }else hidePair();
 }
-function authError(msg){ $("authErr").textContent = msg; $("authErr").hidden = !msg; }
-function acctError(msg){ $("acctErr").textContent = msg; $("acctErr").hidden = !msg; }
+function linkError(msg){ const el = $(cloud.live() ? "acctErr" : "linkErr"); el.textContent = msg; el.hidden = !msg; }
+function clearLinkErrors(){ for(const id of ["acctErr", "linkErr"]){ $(id).textContent = ""; $(id).hidden = true; } }
 function resetAccountDlg(){
-  $("a_pass").value = ""; $("d_pass").value = ""; $("delBox").hidden = true;
-  $("acctDel").textContent = "Elimina account"; $("logoutBtn").textContent = "Esci"; logoutArmed = false;
-  authError(""); acctError("");
+  clearLinkErrors();
+  leaveArmed = eraseArmed = false;
+  $("leaveBtn").textContent = "Scollega"; $("eraseBtn").textContent = "Elimina dati online";
 }
 function openAccount(){
-  if(!cloudOn) return;
-  if(!$("authDlg").open) authMode = "in";
+  if(!syncOn) return;
   resetAccountDlg(); drawAccount();
   if(!$("authDlg").open) $("authDlg").showModal();
-  (cloud.live() ? $("syncBtn") : $("a_email").value ? $("a_pass") : $("a_email")).focus();
+  (cloud.live() ? $("pairBtn") : $("startBtn")).focus();
 }
-function setAuthMode(m){ authMode = m; authError(""); drawAccount(); }
+function hidePair(){ clearInterval(pairTimer); $("pairBox").hidden = true; $("qr").replaceChildren(); }
+function loadQr(){
+  if(window.qrcode) return Promise.resolve();
+  return qrLoad ||= new Promise((ok, ko) => {
+    const s = document.createElement("script");
+    s.src = "qr.js"; s.onload = ok; s.onerror = () => { qrLoad = null; ko({code: "NETWORK"}); };
+    document.head.append(s);
+  });
+}
+function qrSvg(text){
+  const q = window.qrcode(0, "M"); q.addData(text); q.make();
+  const n = q.getModuleCount(), pad = 3, size = n + pad * 2;
+  let d = "";
+  for(let r = 0; r < n; r++) for(let c = 0; c < n; c++) if(q.isDark(r, c)) d += `M${c + pad} ${r + pad}h1v1h-1z`;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${size} ${size}`); svg.setAttribute("shape-rendering", "crispEdges"); svg.setAttribute("aria-hidden", "true");
+  const bg = document.createElementNS(svg.namespaceURI, "rect"); bg.setAttribute("width", size); bg.setAttribute("height", size); bg.setAttribute("fill", "#fff");
+  const p = document.createElementNS(svg.namespaceURI, "path"); p.setAttribute("d", d); p.setAttribute("fill", "#1D1B22");
+  svg.append(bg, p);
+  return svg;
+}
+const pairLink = code => location.origin + location.pathname + "#collega=" + code;
+async function makePair(){
+  clearLinkErrors();
+  $("pairBtn").disabled = true;
+  try{
+    const [j] = await Promise.all([cloud.newCode(), loadQr().catch(() => {})]);
+    const link = pairLink(j.code);
+    $("pairCode").textContent = showCode(j.code);
+    $("pairLink").value = link;
+    $("qr").replaceChildren();
+    if(window.qrcode) $("qr").append(qrSvg(link));
+    $("qr").hidden = !window.qrcode;
+    $("copyLink").textContent = "Copia link";
+    $("pairBox").hidden = false;
+    clearInterval(pairTimer);
+    const tick = () => {
+      const left = Math.ceil((j.expires - Date.now()) / 60000);
+      if(left <= 0){ hidePair(); linkError("Il codice è scaduto: tocca di nuovo “Collega un altro dispositivo”."); return; }
+      $("pairTime").textContent = left === 1 ? "Vale ancora 1 minuto" : `Vale ancora ${left} minuti`;
+    };
+    tick(); pairTimer = setInterval(tick, 10000);
+    $("pairCode").scrollIntoView?.({block: "nearest"});
+  }catch(err){ linkError(err?.code === "UNLINKED" ? "Questo dispositivo non era più collegato: tocca di nuovo “Collega un altro dispositivo”." : linkText(err?.code)); }
+  finally{ $("pairBtn").disabled = false; }
+}
 
 $("accountBtn").addEventListener("click", openAccount);
-$("authClose").addEventListener("click", () => $("authDlg").close());
-$("authDlg").addEventListener("close", resetAccountDlg);
-$("modeIn").addEventListener("click", () => setAuthMode("in"));
-$("modeUp").addEventListener("click", () => setAuthMode("up"));
-$("authForm").addEventListener("submit", async e => {
+// chiusura: pulizia fatta subito (l'evento "close" non arriva sempre), e anche con Esc
+function closeAccount(){ hidePair(); resetAccountDlg(); if($("authDlg").open) $("authDlg").close(); }
+$("authClose").addEventListener("click", closeAccount);
+$("authDlg").addEventListener("close", () => { if(!$("authDlg").open){ hidePair(); resetAccountDlg(); } });  // può arrivare in ritardo, a finestra già riaperta
+$("startBtn").addEventListener("click", async () => {
+  if(linkBusy) return;
+  linkBusy = true; $("startBtn").disabled = true; clearLinkErrors();
+  try{ await cloud.create(); drawAccount(); await makePair(); $("pairBtn").focus(); }
+  catch(err){ linkError(linkText(err?.code)); }
+  finally{ linkBusy = false; $("startBtn").disabled = false; }
+});
+$("joinForm").addEventListener("submit", async e => {
   e.preventDefault();
-  if(authBusy) return;
-  const email = $("a_email").value.trim(), password = $("a_pass").value;
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ authError("Scrivi un'email valida."); $("a_email").focus(); return; }
-  if(!password){ authError("Scrivi la password."); $("a_pass").focus(); return; }
-  if(authMode === "up" && password.length < 8){ authError("La password deve avere almeno 8 caratteri."); $("a_pass").focus(); return; }
-  authBusy = true; $("authSubmit").disabled = true; authError("");
-  const mode = authMode;
+  if(linkBusy) return;
+  const code = cleanCode($("codeIn").value);
+  if(!CODE_RE.test(code)){ linkError("Il codice ha 8 caratteri, per esempio K7P4-QX2M."); $("codeIn").focus(); return; }
+  linkBusy = true; $("joinBtn").disabled = true; clearLinkErrors();
   try{
-    const u = await authCall(mode, email, password);
-    $("a_pass").value = "";
-    const done = cloud.start(u);
-    toast(mode === "up" ? "Account creato: i tuoi pezzi ora si sincronizzano." : "Accesso fatto: sincronizzo i tuoi pezzi.");
-    if($("authDlg").open) $("syncBtn").focus();
-    await done;
-  }catch(err){ authError(authText(err?.code)); }
-  finally{ authBusy = false; $("authSubmit").disabled = false; }
+    await cloud.join(code);
+    $("codeIn").value = "";
+    toast("Collegato: i pezzi ora sono gli stessi su tutti e due i dispositivi.", null, 6000);
+    closeAccount();
+  }catch(err){ linkError(linkText(err?.code)); }
+  finally{ linkBusy = false; $("joinBtn").disabled = false; }
 });
-$("forgotBtn").addEventListener("click", async () => {
-  const email = $("a_email").value.trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ authError("Scrivi prima la tua email, poi tocca di nuovo “Password dimenticata?”."); $("a_email").focus(); return; }
-  $("forgotBtn").disabled = true;
-  try{
-    await postJSON(`${API.auth}sendOobCode?key=${FIREBASE.apiKey}`, {requestType: "PASSWORD_RESET", email});
-    authError(""); toast("Se esiste un account con questa email, ti è arrivato un link per scegliere una nuova password.", null, 7000);
-  }catch(err){
-    if(err?.code === "EMAIL_NOT_FOUND") toast("Se esiste un account con questa email, ti è arrivato un link per scegliere una nuova password.", null, 7000);
-    else authError(authText(err?.code));
-  }finally{ $("forgotBtn").disabled = false; }
+$("pairBtn").addEventListener("click", makePair);
+$("copyLink").addEventListener("click", () => {
+  const link = $("pairLink").value;
+  const fallback = () => { $("pairLink").hidden = false; $("pairLink").focus(); $("pairLink").select(); $("copyLink").textContent = "Seleziona e copia"; };
+  if(!navigator.clipboard?.writeText){ fallback(); return; }
+  navigator.clipboard.writeText(link).then(() => { $("copyLink").textContent = "Copiato"; }).catch(fallback);
 });
-$("syncBtn").addEventListener("click", () => { acctError(""); cloud.sync(); });
-$("logoutBtn").addEventListener("click", async () => {
-  acctError("");
-  const done = () => { $("authDlg").close(); toast("Sei uscito. I tuoi pezzi restano nel tuo account."); };
-  if(logoutArmed){ await cloud.logout(true); done(); return; }
-  $("logoutBtn").disabled = true;
-  const ok = await cloud.logout(false);
-  $("logoutBtn").disabled = false;
-  if(ok){ done(); return; }
-  logoutArmed = true; $("logoutBtn").textContent = "Esci comunque";
-  acctError("Alcune modifiche non sono ancora online (sei offline?). Se esci adesso, da questo dispositivo vanno perse.");
-});
-$("acctDel").addEventListener("click", async () => {
-  acctError("");
-  if($("delBox").hidden){
-    $("delBox").hidden = false; $("acctDel").textContent = "Elimina definitivamente"; $("d_pass").focus();
+$("syncBtn").addEventListener("click", () => { clearLinkErrors(); cloud.sync(); });
+$("leaveBtn").addEventListener("click", async () => {
+  clearLinkErrors();
+  if(!leaveArmed){
+    leaveArmed = true; $("leaveBtn").textContent = "Scollega davvero";
+    linkError("I pezzi restano su questo dispositivo ma non si sincronizzano più. Se è l'unico dispositivo collegato, la copia online viene cancellata.");
     return;
   }
-  const pw = $("d_pass").value;
-  if(!pw){ acctError("Scrivi la password per confermare."); $("d_pass").focus(); return; }
-  $("acctDel").disabled = true;
-  try{
-    await cloud.deleteAccount(pw);
-    $("authDlg").close();
-    toast("Account eliminato. I tuoi pezzi restano solo su questo dispositivo.", null, 6000);
-  }catch(err){
-    const c = err?.code;
-    acctError(c === "INVALID_LOGIN_CREDENTIALS" || c === "INVALID_PASSWORD" ? "Password sbagliata." : authText(c));
-    if(!cloud.live()) drawAccount();
-  }finally{ $("acctDel").disabled = false; }
+  $("leaveBtn").disabled = true;
+  const force = leaveArmed === "force";
+  const ok = await cloud.leave(force);
+  $("leaveBtn").disabled = false;
+  if(ok){ closeAccount(); toast("Dispositivo scollegato. I pezzi restano qui."); return; }
+  leaveArmed = "force"; $("leaveBtn").textContent = "Scollega comunque";
+  linkError("Alcune modifiche non sono ancora online (sei offline?). Se scolleghi adesso, restano solo su questo dispositivo.");
 });
+$("eraseBtn").addEventListener("click", async () => {
+  clearLinkErrors();
+  if(!eraseArmed){
+    eraseArmed = true; $("eraseBtn").textContent = "Elimina davvero";
+    linkError("Cancella la copia online e scollega tutti i dispositivi. Ogni dispositivo tiene i pezzi che ha.");
+    return;
+  }
+  $("eraseBtn").disabled = true;
+  try{ await cloud.erase(); closeAccount(); toast("Copia online eliminata. I pezzi restano su questo dispositivo.", null, 6000); }
+  catch(err){ linkError(linkText(err?.code)); }
+  finally{ $("eraseBtn").disabled = false; }
+});
+
+// link "…#collega=CODICE" (dal QR o copiato): apre la finestra con il codice già scritto
+function readLinkHash(){
+  const m = /[#&]collega=([A-Za-z0-9-]{8,12})/.exec(location.hash);
+  if(!m) return;
+  try{ history.replaceState(null, "", location.pathname + location.search); }catch{}
+  if(!syncOn) return;
+  markHelpSeen();
+  openAccount();
+  if(cloud.live()){ linkError("Questo dispositivo è già collegato. Per usare un altro codice, prima tocca “Scollega”."); return; }
+  $("codeIn").value = showCode(cleanCode(m[1]));
+  $("joinBtn").focus();
+}
+addEventListener("hashchange", readLinkHash);
 
 // quando sincronizzare: all'avvio, dopo ogni modifica, quando torni sull'app o torna la rete, e ogni due minuti
 document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && Date.now() - cloud.last > 10000) cloud.sync(); });
 addEventListener("online", () => cloud.sync());
 addEventListener("offline", () => { if(cloud.live() && cloud.state !== "syncing") cloud.setState("offline"); });
 setInterval(() => { if(document.visibilityState === "visible") cloud.sync(); }, 120000);
-// accesso o uscita fatti in un'altra scheda
-addEventListener("storage", e => { if(e.key === AUTH_KEY || e.key === null){ cloud.load(); store.load(); if(cloud.live()) cloud.soon(); } });
+// collegato o scollegato in un'altra scheda
+addEventListener("storage", e => { if(e.key === LINK_KEY || e.key === null){ cloud.load(); store.load(); if(cloud.live()) cloud.soon(); } });
 
 // ---------- avvio ----------
 try{ localStorage.setItem("rigbook.test", "1"); localStorage.removeItem("rigbook.test"); }
@@ -1125,6 +1112,7 @@ catch{ storageBroken = true; showNote("storage", "Questo browser non permette di
 cloud.load();
 store.load();
 cloud.sync();
+readLinkHash();
 try{ navigator.storage?.persisted?.().then(p => p || navigator.storage.persist()).catch(() => {}); }catch{}
 
 const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
@@ -1146,7 +1134,7 @@ if(!standalone && !storageBroken && !cloud.live()){
 
 if(!prefs.helpSeen){
   if(items.length) savePref("helpSeen", Date.now());
-  else setTimeout(() => { if(!$("dlg").open) openHelp(); }, motionOK ? 900 : 0);
+  else setTimeout(() => { if(!$("dlg").open && !$("authDlg").open) openHelp(); }, motionOK ? 900 : 0);
 }
 
 // ---------- aggiornamenti dell'app ----------

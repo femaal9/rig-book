@@ -5,8 +5,8 @@ Un'app web per segnare il tuo gear musicale e da studio: chitarre, bassi, ampli,
 Per chitarre e bassi puoi segnare scalatura, corde, accordatura e la data dell'ultimo cambio corde: l'app ti avvisa quando sono passati più di 4 mesi.
 
 - Funziona anche offline e si installa sul telefono ("Aggiungi alla schermata Home").
-- Senza account i dati restano solo sul tuo dispositivo. Con un account (email e password, facoltativo) i pezzi si sincronizzano tra telefono e PC.
-- Nessuna libreria esterna (anche il font è incluso). L'unico servizio esterno è Firebase, usato solo se accedi.
+- I dati restano sul tuo dispositivo. Con "Collega" (facoltativo) li sincronizzi tra telefono e PC: sull'altro dispositivo inquadri un QR o scrivi un codice di 8 caratteri. Niente email né password.
+- Nessuna libreria esterna caricata da altri siti (font e QR inclusi).
 - Con "Esporta backup" salvi un file `.json`, con "Importa backup" lo ricarichi su un altro dispositivo. L'app ti ricorda di fare un backup ogni 30 giorni.
 - Prezzi scritti all'italiana ("1.450", "89,90"), ricerca su tutto, ordinamento, annulla dopo l'eliminazione.
 - Quando esce una nuova versione compare un avviso con il pulsante Aggiorna.
@@ -14,9 +14,9 @@ Per chitarre e bassi puoi segnare scalatura, corde, accordatura e la data dell'u
 Sito statico: `index.html`, `app.js`, `sw.js`, `manifest.webmanifest`. Nessuna build.
 Per pubblicare un aggiornamento cambia `VERSION` in `sw.js`.
 
-Account e sincronizzazione: Firebase Authentication (email/password) e Firestore, chiamati via REST da `app.js`.
-La configurazione (`apiKey` e `projectId`, valori pubblici) è in `FIREBASE` in cima alla sezione "account e sincronizzazione";
-se è vuota il pulsante Accedi non compare. Le regole di sicurezza sono in `firestore.rules`.
-Ogni pezzo è un documento `users/{uid}/items/{id}`; vince la modifica più recente e le eliminazioni restano come lapidi.
+Sincronizzazione: server in `functions/` (Cloudflare Pages Functions + database D1 collegato come `DB`).
+L'indirizzo del server va in `SYNC_API` in `app.js` (e in `connect-src` nella CSP di `index.html`); se è vuoto il pulsante Collega non compare.
+Il primo dispositivo crea un conto anonimo e riceve un token (sul server solo l'impronta SHA-256); gli altri si collegano con un codice
+di 10 minuti, monouso. Ogni pezzo è una riga `items`; vince la modifica più recente e le eliminazioni restano come lapidi.
 
-Font: Rubik, licenza SIL Open Font License 1.1 (testo in `fonts/`).
+Librerie incluse: qrcode-generator (MIT, Kazuhiko Arase) in `qr.js`.

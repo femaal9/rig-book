@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://rig-book.pages.dev; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Rig Book</title>
 <meta name="description" content="Il tuo gear musicale e da studio: modelli, anni, prezzi e scalatura delle corde.">
@@ -266,22 +266,33 @@ textarea{min-height:96px;resize:vertical}
 .err{color:var(--bad);font-size:14px;margin:0;font-weight:700}
 .hint{font-size:13px;color:var(--muted);margin:0}
 
-/* ---------- account ---------- */
+/* ---------- telefono e PC ---------- */
 .acct-btn{position:relative}
 .dot{width:9px;height:9px;border-radius:99px;background:var(--faint);flex:none;display:inline-block}
 .dot.ok{background:#21B573}.dot.busy{background:#FFB000}.dot.bad{background:var(--bad)}
 .acct-btn .dot{position:absolute;top:5px;right:5px;box-shadow:0 0 0 2px var(--bg)}
 .auth .dlg-body{gap:16px}
-.seg{display:flex;gap:4px;padding:4px;background:var(--panel);border-radius:999px}
-.seg button{flex:1;border:0;background:transparent;color:var(--fg);font:inherit;font-weight:700;font-size:14px;padding:9px 12px;border-radius:999px;cursor:pointer}
-.seg button[aria-pressed="true"]{background:var(--surface);box-shadow:inset 0 0 0 2px var(--fg)}
-.seg button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.auth .lead{margin:0;font-size:16px;line-height:1.45}
+.auth #startBtn{align-self:flex-start}
+.or{display:flex;align-items:center;gap:12px;margin:4px 0 12px;color:var(--muted);font-size:13px}
+.or::before,.or::after{content:"";flex:1;border-top:2px dashed var(--line)}
+.join{display:flex;flex-direction:column;gap:8px}
+.join-row{display:flex;gap:8px}
+.code-in{font-size:18px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;max-width:220px}
 .acct-card{display:flex;gap:14px;align-items:center;padding:16px;background:var(--panel);border-radius:var(--r-md);min-width:0}
 .acct-card>div{min-width:0}
 .acct-card strong{display:block;overflow-wrap:anywhere;font-size:16px}
-.avatar{width:46px;height:46px;border-radius:999px;display:grid;place-items:center;font-weight:800;font-size:19px;background:#FF5A36;color:#1D1B22;flex:none;transform:rotate(-6deg)}
+.avatar{width:46px;height:46px;border-radius:999px;display:grid;place-items:center;background:#21B573;flex:none;transform:rotate(-6deg)}
+.avatar svg{width:24px;height:24px;fill:none;stroke:#1D1B22;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 .sync-line{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);margin-top:3px}
-@media (min-width:641px){ dialog.auth{width:min(480px,calc(100vw - 24px))} }
+.pair{display:flex;gap:18px;align-items:center;padding:16px;border:2px dashed var(--line);border-radius:var(--r-md)}
+.qr{width:168px;flex:none;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 0 0 2px var(--fg)}
+.qr svg{display:block;width:100%;height:auto}
+.pair-txt{display:flex;flex-direction:column;gap:8px;align-items:flex-start;min-width:0}
+.code{margin:0;font-size:30px;font-weight:800;letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.dlg-foot .left{display:flex;gap:4px;flex-wrap:wrap}
+@media (max-width:640px){ .pair{flex-direction:column;align-items:stretch;text-align:left} .qr{width:190px;align-self:center} .auth .dlg-foot .right{width:100%;flex-direction:column-reverse} .auth .dlg-foot .right .btn{width:100%} }
+@media (min-width:641px){ dialog.auth{width:min(560px,calc(100vw - 24px))} }
 
 /* ---------- animazioni (spente con "Riduci movimento") ---------- */
 @media (prefers-reduced-motion:no-preference){
@@ -341,7 +352,7 @@ textarea{min-height:96px;resize:vertical}
       <button type="button" class="btn ghost" id="helpBtn" aria-label="Come funziona"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7M12 17h.01"/></svg><span class="txt">Come funziona</span></button>
       <button type="button" class="btn ghost" id="importBtn" aria-label="Importa backup"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 10l5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span class="txt">Importa</span></button>
       <button type="button" class="btn ghost" id="exportBtn" aria-label="Esporta backup"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span class="txt">Esporta backup</span></button>
-      <button type="button" class="btn ghost acct-btn" id="accountBtn" aria-label="Accedi" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg><span class="txt">Accedi</span><span class="dot" hidden></span></button>
+      <button type="button" class="btn ghost acct-btn" id="accountBtn" aria-label="Collega telefono e PC" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="14" height="10" rx="1.5"/><path d="M5 18h8"/><rect x="16" y="9" width="6" height="11" rx="1.5"/></svg><span class="txt">Collega</span><span class="dot" hidden></span></button>
       <button type="button" class="btn primary" id="addBtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Aggiungi pezzo</span></button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
     </div>
@@ -490,7 +501,7 @@ textarea{min-height:96px;resize:vertical}
         <li class="cat-guitar"><span class="num" aria-hidden="true">1</span><div><h3>Aggiungi i tuoi pezzi</h3><p>Tocca “Aggiungi pezzo” oppure un adesivo. Scegli la categoria e scrivi marca e modello: il resto è facoltativo.</p></div></li>
         <li class="cat-fx"><span class="num" aria-hidden="true">2</span><div><h3>Tieni d'occhio le corde</h3><p>Per chitarre e bassi segna scalatura e data del cambio. Dopo 4 mesi la scheda ti avvisa che è ora di cambiarle.</p></div></li>
         <li class="cat-outboard"><span class="num" aria-hidden="true">3</span><div><h3>Filtra con gli adesivi</h3><p>Tocca un adesivo per vedere solo quella categoria. Chitarre, pedali e outboard si filtrano anche per tipo.</p></div></li>
-        <li class="cat-amp"><span class="num" aria-hidden="true">4</span><div><h3>Usala su telefono e PC</h3><p>Tocca “Accedi” e crea un account con email e password: i pezzi si sincronizzano da soli su tutti i tuoi dispositivi. Senza account restano solo qui, e “Esporta backup” ne salva una copia.</p></div></li>
+        <li class="cat-amp"><span class="num" aria-hidden="true">4</span><div><h3>Usala su telefono e PC</h3><p>Tocca “Collega”: sull'altro dispositivo inquadri il QR o scrivi il codice, e i pezzi restano uguali su tutti e due. Niente email né password. Se non colleghi niente restano solo qui: “Esporta backup” ne salva una copia.</p></div></li>
       </ol>
       <p class="hint">Funziona anche senza rete: aggiungila alla schermata Home e si apre come un'app.</p>
     </div>
@@ -501,40 +512,44 @@ textarea{min-height:96px;resize:vertical}
 <dialog id="authDlg" class="auth" aria-labelledby="authTitle">
   <div class="dlg">
     <div class="dlg-head">
-      <h2 id="authTitle">Accedi</h2>
+      <h2 id="authTitle">Telefono e PC</h2>
       <button type="button" class="close" id="authClose" aria-label="Chiudi">×</button>
     </div>
-    <form id="authForm" novalidate>
+    <div id="linkOff">
       <div class="dlg-body">
-        <div class="seg" id="authSeg">
-          <button type="button" id="modeIn" aria-pressed="true">Accedi</button>
-          <button type="button" id="modeUp" aria-pressed="false">Crea account</button>
-        </div>
-        <p class="hint" id="authHint"></p>
-        <label>Email<input id="a_email" type="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="200" aria-describedby="authErr"></label>
-        <label>Password<input id="a_pass" type="password" autocomplete="current-password" maxlength="200" aria-describedby="passHint authErr"><span class="hint" id="passHint" hidden>Almeno 8 caratteri.</span></label>
-        <p class="err" id="authErr" role="alert" hidden></p>
+        <p class="lead">Usa Rig Book sul telefono e sul PC con gli stessi pezzi. Niente email, niente password.</p>
+        <button type="button" class="btn primary big" id="startBtn">Collega un altro dispositivo</button>
+        <form id="joinForm" class="join" novalidate>
+          <p class="or"><span>oppure</span></p>
+          <label>Hai già un codice dall'altro dispositivo?
+            <span class="join-row"><input id="codeIn" class="code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="K7P4-QX2M" aria-describedby="linkErr joinHint"><button type="submit" class="btn" id="joinBtn">Collega</button></span>
+          </label>
+          <p class="hint" id="joinHint" hidden>I pezzi che hai qui vengono aggiunti a quelli dell'altro dispositivo.</p>
+        </form>
+        <p class="err" id="linkErr" role="alert" hidden></p>
       </div>
-      <div class="dlg-foot">
-        <button type="button" class="btn ghost small" id="forgotBtn">Password dimenticata?</button>
-        <div class="right"><button type="submit" class="btn primary" id="authSubmit">Accedi</button></div>
-      </div>
-    </form>
-    <div id="acctView" hidden>
+    </div>
+    <div id="linkOn" hidden>
       <div class="dlg-body">
         <div class="acct-card">
-          <span class="avatar" id="acctAvatar" aria-hidden="true"></span>
-          <div><strong id="acctEmail"></strong><span class="sync-line" role="status"><span class="dot" id="acctDot"></span><span id="acctStateText"></span></span></div>
+          <span class="avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+          <div><strong>Sincronizzazione attiva</strong><span class="sync-line" role="status"><span class="dot" id="acctDot"></span><span id="acctStateText"></span></span></div>
         </div>
-        <p class="hint">I pezzi si sincronizzano da soli. Sull'altro dispositivo apri Rig Book, tocca “Accedi” e usa la stessa email.</p>
-        <div id="delBox" hidden>
-          <label>Per eliminare l'account e tutti i pezzi salvati online, scrivi la password<input id="d_pass" type="password" autocomplete="current-password" maxlength="200"></label>
+        <div class="pair" id="pairBox" hidden>
+          <div class="qr" id="qr"></div>
+          <div class="pair-txt">
+            <p class="hint">Sull'altro dispositivo inquadra il QR con la fotocamera, oppure apri Rig Book, tocca “Collega” e scrivi:</p>
+            <p class="code" id="pairCode"></p>
+            <p class="hint" id="pairTime"></p>
+            <button type="button" class="btn small" id="copyLink">Copia link</button>
+            <input id="pairLink" readonly hidden aria-label="Link per collegare un altro dispositivo">
+          </div>
         </div>
         <p class="err" id="acctErr" role="alert" hidden></p>
       </div>
       <div class="dlg-foot">
-        <button type="button" class="btn danger small" id="acctDel">Elimina account</button>
-        <div class="right"><button type="button" class="btn" id="logoutBtn">Esci</button><button type="button" class="btn primary" id="syncBtn">Sincronizza ora</button></div>
+        <div class="left"><button type="button" class="btn danger small" id="eraseBtn">Elimina dati online</button><button type="button" class="btn ghost small" id="leaveBtn">Scollega</button></div>
+        <div class="right"><button type="button" class="btn" id="syncBtn">Sincronizza ora</button><button type="button" class="btn primary" id="pairBtn">Collega un altro dispositivo</button></div>
       </div>
     </div>
   </div>
@@ -554,6 +569,6 @@ textarea{min-height:96px;resize:vertical}
   </div>
 </dialog>
 
-<script src="app.js?v=19"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>
