@@ -729,7 +729,7 @@ $("helpDlg").addEventListener("close", markHelpSeen);   // anche chiudendo con E
 // c'è solo la sua impronta). Per collegarne un altro si genera un codice di 10 minuti, anche come link o QR:
 // l'altro dispositivo lo scambia con un token suo. Niente email, niente password.
 // Ogni pezzo è una riga sul server: vince la modifica più recente (updatedAt), le eliminazioni restano come lapidi.
-const SYNC_API = "";   // indirizzo del server, es. "https://rig-book.pages.dev/api/" (vuoto = funzione nascosta)
+const SYNC_API = "https://rig-book.pages.dev/api/";   // indirizzo del server, es. "https://rig-book.pages.dev/api/" (vuoto = funzione nascosta)
 const syncOn = /^(https:\/\/[a-z0-9.-]+)?\/api\/$/.test(SYNC_API);
 const LINK_KEY = "rigbook.link.v1", SYNC_KEY = "rigbook.sync.v1";
 const okAcct = s => typeof s === "string" && /^[A-Za-z0-9_-]{16,64}$/.test(s);
