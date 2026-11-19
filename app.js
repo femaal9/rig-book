@@ -869,7 +869,10 @@ const cloud = {
       if(changed) store.check(store.write(o));
       m.cursor = cursor;
       this.saveMeta(m);
-      if(changed) store.load();
+      if(changed) // niente zoom: blocca il pizzico con due dita su iPhone (Safari ignora user-scalable=no)
+for(const ev of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(ev, e => e.preventDefault(), {passive: false});
+document.addEventListener("touchmove", e => { if(e.touches.length > 1) e.preventDefault(); }, {passive: false});
+store.load();
       this.last = Date.now(); this.err = "";
       hideNote("unlinked");
       this.setState("ok");

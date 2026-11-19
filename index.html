@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://rig-book.pages.dev; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Rig Book</title>
@@ -73,6 +73,7 @@ body:has(dialog[open]){overflow:hidden}
 img{max-width:100%}[hidden]{display:none!important}
 .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 button{font:inherit;cursor:pointer;color:inherit}
+html{touch-action:manipulation}
 svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 
 .wrap{max-width:1080px;margin:0 auto;padding-bottom:calc(96px + env(safe-area-inset-bottom,0px));
@@ -185,8 +186,8 @@ h1.split .line.dim{display:none}
 .subchips .chip[aria-pressed="true"] .code{color:inherit;opacity:.75}
 .searchbox{position:relative;flex:1 1 260px;min-width:0}
 .searchbox svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;width:17px;height:17px}
-.search{width:100%;padding:10px 14px 10px 40px;border:2px solid var(--field-line);border-radius:999px;background:var(--surface);color:var(--fg);font:inherit;font-size:15px}
-.sort{flex:0 1 auto;width:auto;padding:10px 14px;border:2px solid var(--field-line);border-radius:999px;background:var(--surface);color:var(--fg);font:inherit;font-size:15px}
+.search{width:100%;padding:10px 14px 10px 40px;border:2px solid var(--field-line);border-radius:999px;background:var(--surface);color:var(--fg);font:inherit;font-size:16px}
+.sort{flex:0 1 auto;width:auto;padding:10px 14px;border:2px solid var(--field-line);border-radius:999px;background:var(--surface);color:var(--fg);font:inherit;font-size:16px}
 .toggle{font-size:14px;font-weight:500;color:var(--muted);display:flex;flex-direction:row;gap:8px;align-items:center;white-space:nowrap;cursor:pointer}
 .toggle input{width:19px;height:19px;accent-color:var(--fg);margin:0}
 
@@ -261,7 +262,7 @@ fieldset.strings-set{background:var(--panel);border-radius:var(--r-md);padding:1
 fieldset.strings-set legend{float:left;width:100%;margin-bottom:2px}
 label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--fg);min-width:0}
 label.full{grid-column:1/-1}
-input,select,textarea{font:inherit;font-size:15px;font-weight:400;color:var(--fg);background:var(--surface);border:2px solid var(--field-line);border-radius:var(--r-sm);padding:9px 12px;width:100%;min-width:0;transition:border-color .15s,box-shadow .15s}
+input,select,textarea{font:inherit;font-size:16px;font-weight:400;color:var(--fg);background:var(--surface);border:2px solid var(--field-line);border-radius:var(--r-sm);padding:9px 12px;width:100%;min-width:0;transition:border-color .15s,box-shadow .15s}
 input::placeholder,textarea::placeholder{color:var(--faint)}
 input:focus,select:focus,textarea:focus{border-color:var(--fg);box-shadow:0 0 0 4px var(--hover);outline:none}
 input[aria-invalid="true"]{border-color:var(--bad);box-shadow:0 0 0 4px var(--bad-soft)}
@@ -568,12 +569,12 @@ textarea{min-height:96px;resize:vertical}
     </div>
     <div class="dlg-body">
       <p class="hint">Copia questo testo e salvalo in un file <code>.json</code> o in una nota. Con "Importa backup" lo ricarichi su un altro dispositivo.</p>
-      <textarea id="bkText" readonly aria-label="Testo del backup" style="min-height:220px;font-family:var(--f-mono);font-size:12px"></textarea>
+      <textarea id="bkText" readonly aria-label="Testo del backup" style="min-height:220px;font-family:var(--f-mono);font-size:16px"></textarea>
     </div>
     <div class="dlg-foot"><div class="right"><button type="button" class="btn primary" id="bkCopy">Copia</button></div></div>
   </div>
 </dialog>
 
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>
