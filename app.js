@@ -1,5 +1,6 @@
 "use strict";
-// Rig Book — inventario del gear. Tutti i dati restano su questo dispositivo (localStorage).
+// Rig Book — inventario del gear. I dati stanno su questo dispositivo (localStorage);
+// con l'account facoltativo si sincronizzano anche online (vedi "account e sincronizzazione").
 
 // ---------- costanti ----------
 const CATS = [
@@ -69,7 +70,7 @@ const ICONS = {
 const icon = k => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ICONS.other}</svg>`;
 
 // Pagina e script di versioni diverse (cache del vecchio service worker): ripara e ricarica una volta.
-if(!$("sort") || !$("notes") || !$("toast") || !$("sBars") || !$("topbar") || !$("subChips") || !$("f_sub") || !$("heroTitle") || !$("helpDlg")){
+if(!$("sort") || !$("notes") || !$("toast") || !$("sBars") || !$("topbar") || !$("subChips") || !$("f_sub") || !$("heroTitle") || !$("helpDlg") || !$("authDlg")){
   let tried = false;
   try{ tried = sessionStorage.getItem("rigbook.repair") === "1"; sessionStorage.setItem("rigbook.repair", "1"); }catch{}
   const msg = document.createElement("p");
@@ -196,8 +197,18 @@ const store = {
     items = Object.keys(o).filter(okId).map(id => { const d = normalize(o[id]); return d && {id, ...d}; }).filter(Boolean);
     loaded = true; render();
   },
-  save(id, data){ const o = this.read(); o[id] = data; this.check(this.write(o)); this.load(); },
-  remove(id){ const o = this.read(); delete o[id]; this.check(this.write(o)); this.load(); },
+  save(id, data){
+    const o = this.read();
+    // la nuova versione deve risultare più recente di quella che sostituisce (anche se eliminata),
+    // altrimenti la sincronizzazione la scarterebbe
+    const floor = Math.max(Number(o[id]?.updatedAt) || 0, cloud.tombOf(id));
+    if(!(data.updatedAt > floor)) data = {...data, updatedAt: Math.max(Date.now(), floor + 1)};
+    o[id] = data; this.check(this.write(o)); cloud.forget(id); this.load(); cloud.soon();
+  },
+  remove(id){
+    const o = this.read(), ts = o[id]?.updatedAt;
+    delete o[id]; this.check(this.write(o)); cloud.bury(id, ts); this.load(); cloud.soon();
+  },
 };
 const errText = err => err?.code === "readonly" ? "Salvataggio bloccato per proteggere i dati illeggibili già presenti."
   : err?.code === "quota_exceeded" ? "Spazio esaurito sul dispositivo: elimina qualche pezzo ed esporta un backup."
@@ -635,15 +646,16 @@ $("importFile").addEventListener("change", async e => {
   for(const raw of list.slice(0, MAX_IMPORT_ITEMS)){
     const d = normalize(raw);
     if(!d || (!d.brand && !d.model)){ skipped++; continue; }
-    d.updatedAt = Date.now();
     const id = okId(raw.id) ? raw.id : newId();
+    d.updatedAt = Math.max(Date.now(), (Number(o[id]?.updatedAt) || 0) + 1, cloud.tombOf(id) + 1);
+    cloud.forget(id);
     has(o, id) ? updated++ : added++;
     o[id] = d;
   }
   skipped += Math.max(0, list.length - MAX_IMPORT_ITEMS);
   if(!added && !updated){ toast("Nessun pezzo trovato nel file."); return; }
   try{ store.check(store.write(o)); }catch(err){ toast("Importazione annullata: " + errText(err)); return; }
-  store.load();
+  store.load(); cloud.soon();
   const parts = [];
   if(added) parts.push(added === 1 ? "1 pezzo nuovo" : `${added} pezzi nuovi`);
   if(updated) parts.push(updated === 1 ? "1 aggiornato" : `${updated} aggiornati`);
@@ -653,7 +665,7 @@ $("importFile").addEventListener("change", async e => {
 
 // promemoria backup: i dati esistono solo su questo dispositivo
 function checkBackupReminder(){
-  if(!items.length || storageBroken){ hideNote("backup"); return; }
+  if(!items.length || storageBroken || (cloud.live() && cloud.state === "ok")){ hideNote("backup"); return; }
   const last = Number(prefs.lastBackup) || 0, snoozed = Number(prefs.backupSnooze) || 0;
   const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
   const due = (days == null && items.length >= 3) || (days != null && days >= BACKUP_REMIND_DAYS);
@@ -712,15 +724,412 @@ $("helpClose").addEventListener("click", closeHelp);
 $("helpOk").addEventListener("click", closeHelp);
 $("helpDlg").addEventListener("close", markHelpSeen);   // anche chiudendo con Esc
 
+// ---------- account e sincronizzazione (facoltativi) ----------
+// Senza account tutto resta su questo dispositivo, come sempre. Con l'account (Firebase Authentication e
+// Firestore, chiamati via REST: niente librerie esterne) ogni pezzo è un documento users/{uid}/items/{id}.
+// Vince la modifica più recente (updatedAt); un pezzo eliminato resta come "lapide" così l'eliminazione
+// arriva anche sugli altri dispositivi.
+const FIREBASE = {apiKey: "", projectId: ""};
+const API = {
+  auth: "https://identitytoolkit.googleapis.com/v1/accounts:",
+  token: "https://securetoken.googleapis.com/v1/token",
+  db: "https://firestore.googleapis.com/v1/",
+};
+const cloudOn = /^[A-Za-z0-9_-]{20,80}$/.test(FIREBASE.apiKey) && /^[a-z0-9-]{4,40}$/.test(FIREBASE.projectId);
+const AUTH_KEY = "rigbook.auth.v1", SYNC_KEY = "rigbook.sync.v1";
+const okUid = s => typeof s === "string" && /^[A-Za-z0-9]{1,128}$/.test(s);
+const readJSON = k => { try{ const v = JSON.parse(localStorage.getItem(k) || "null"); return v && typeof v === "object" && !Array.isArray(v) ? v : null; }catch{ return null; } };
+const writeJSON = (k, v) => { try{ v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); return true; }catch{ return false; } };
+// risposte che vogliono dire "la sessione non vale più: bisogna rifare l'accesso"
+const SESSION_GONE = new Set(["TOKEN_EXPIRED", "USER_DISABLED", "USER_NOT_FOUND", "INVALID_REFRESH_TOKEN", "INVALID_GRANT_TYPE", "MISSING_REFRESH_TOKEN", "USER_MISMATCH", "INVALID_ID_TOKEN"]);
+
+async function call(url, opt = {}, ms = 20000){
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms);
+  try{
+    const res = await fetch(url, {...opt, signal: ctl.signal, cache: "no-store", credentials: "omit", referrerPolicy: "strict-origin"});
+    let j = null;
+    try{ j = await res.json(); }catch{}
+    if(!res.ok){
+      const e = (Array.isArray(j) ? j[0] : j)?.error || {};
+      const m = typeof e.message === "string" ? e.message : "";
+      throw {code: (/^[A-Z_]{3,}/.exec(m) || [])[0] || (typeof e.status === "string" && e.status) || "HTTP_" + res.status, status: res.status};
+    }
+    return j;
+  }catch(e){ throw e && e.code ? e : {code: "NETWORK"}; }
+  finally{ clearTimeout(timer); }
+}
+const postJSON = (url, body, headers = {}, ms) => call(url, {method: "POST", headers: {"Content-Type": "application/json", ...headers}, body: JSON.stringify(body)}, ms);
+
+async function authCall(mode, email, password){
+  const j = await postJSON(`${API.auth}${mode === "up" ? "signUp" : "signInWithPassword"}?key=${FIREBASE.apiKey}`, {email, password, returnSecureToken: true});
+  if(!okUid(j?.localId) || typeof j.refreshToken !== "string" || typeof j.idToken !== "string") throw {code: "BAD_RESPONSE"};
+  return {uid: j.localId, email: String(j.email || email).slice(0, 200), refresh: j.refreshToken, id: j.idToken, exp: Date.now() + (Number(j.expiresIn) || 3600) * 1000};
+}
+
+// gli id dei documenti Firestore non possono contenere "/" né essere "." o "__x__": quelli strani diventano esadecimale
+const remoteId = id => /^[A-Za-z0-9_-]{1,100}$/.test(id) && !/^__.*__$/.test(id) ? id
+  : "x" + Array.from(new TextEncoder().encode(id), b => b.toString(16).padStart(2, "0")).join("");
+// readTime di Firestore (con nanosecondi) → cursore per la prossima lettura, con 10 s di margine
+function cursorFrom(rt){
+  const ms = typeof rt === "string" ? Date.parse(rt.replace(/\.\d+Z$/, "Z")) : NaN;
+  return Number.isFinite(ms) ? new Date(ms - 10000).toISOString() : null;
+}
+
+const cloud = {
+  user: null,          // {uid, email, refresh, id, exp}; refresh = null → bisogna rifare l'accesso
+  state: "off",        // off | idle | syncing | ok | offline | error | relogin
+  err: "", last: 0, running: null, again: false, soonTimer: 0, retryTimer: 0, busy: false,
+
+  load(){
+    const u = cloudOn ? readJSON(AUTH_KEY) : null;
+    this.user = u && okUid(u.uid) && typeof u.email === "string"
+      ? {uid: u.uid, email: u.email.slice(0, 200), refresh: typeof u.refresh === "string" ? u.refresh : null, id: typeof u.id === "string" ? u.id : null, exp: Number(u.exp) || 0}
+      : null;
+    this.state = !this.user ? "off" : !this.user.refresh ? "relogin" : ["off", "relogin"].includes(this.state) ? "idle" : this.state;
+    this.setState(this.state);
+  },
+  setUser(u){ this.user = u; writeJSON(AUTH_KEY, u); },
+  live(){ return !!this.user?.refresh; },
+  setState(s){
+    this.state = s;
+    clearTimeout(this.retryTimer);
+    if(s === "error") this.retryTimer = setTimeout(() => this.sync(), 60000);
+    if(s === "relogin") showNote("relogin", "La sessione è scaduta: accedi di nuovo per sincronizzare i tuoi pezzi.", [{label: "Accedi", primary: true, run: openAccount}]);
+    else hideNote("relogin");
+    drawAccount();
+  },
+
+  // stato della sincronizzazione su questo dispositivo, legato all'account
+  meta(){
+    const m = readJSON(SYNC_KEY), uid = this.user?.uid;
+    const ok = m && m.uid === uid;
+    const nums = o => { const d = dict({}); if(o && typeof o === "object") for(const k of Object.keys(o)) if(okId(k) && Number.isFinite(o[k])) d[k] = o[k]; return d; };
+    return {uid, synced: ok ? nums(m.synced) : dict({}), tomb: ok ? nums(m.tomb) : dict({}), cursor: ok && typeof m.cursor === "string" ? m.cursor : null};
+  },
+  saveMeta(m){ if(m.uid && m.uid === this.user?.uid) writeJSON(SYNC_KEY, {uid: m.uid, synced: m.synced, tomb: m.tomb, cursor: m.cursor}); },
+  tombOf(id){ return this.user ? this.meta().tomb[id] || 0 : 0; },
+  bury(id, ts){ if(!this.user) return; const m = this.meta(); m.tomb[id] = Math.max(Date.now(), (Number(ts) || 0) + 1); this.saveMeta(m); },
+  forget(id){ if(!this.user) return; const m = this.meta(); if(has(m.tomb, id)){ delete m.tomb[id]; this.saveMeta(m); } },
+  // ci sono modifiche fatte qui che non sono ancora online?
+  dirty(){
+    if(!this.user) return false;
+    const m = this.meta(), o = store.read();
+    return Object.keys(o).some(id => okId(id) && (Number(o[id]?.updatedAt) || 0) > (m.synced[id] || 0))
+      || Object.keys(m.tomb).some(id => !has(o, id) && m.tomb[id] > (m.synced[id] || 0));
+  },
+
+  async token(force){
+    const u = this.user;
+    if(!u?.refresh) throw {code: "MISSING_REFRESH_TOKEN"};
+    if(!force && u.id && u.exp - Date.now() > 300000) return u.id;
+    const j = await call(`${API.token}?key=${FIREBASE.apiKey}`, {method: "POST", headers: {"Content-Type": "application/x-www-form-urlencoded"}, body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(u.refresh)});
+    if(this.user?.uid !== u.uid) throw {code: "ABORTED"};
+    if(j?.user_id !== u.uid || typeof j.id_token !== "string") throw {code: "USER_MISMATCH"};
+    this.setUser({...this.user, id: j.id_token, refresh: typeof j.refresh_token === "string" ? j.refresh_token : u.refresh, exp: Date.now() + (Number(j.expires_in) || 3600) * 1000});
+    return j.id_token;
+  },
+  base(){ return `projects/${FIREBASE.projectId}/databases/(default)/documents`; },
+  async db(path, body){
+    const go = t => postJSON(API.db + this.base() + path, body, {Authorization: "Bearer " + t}, 30000);
+    try{ return await go(await this.token()); }
+    catch(e){ if(e.status === 401) return go(await this.token(true)); throw e; }
+  },
+  async pull(uid, cursor){
+    const q = {from: [{collectionId: "items"}]};
+    if(cursor) q.where = {fieldFilter: {field: {fieldPath: "s"}, op: "GREATER_THAN_OR_EQUAL", value: {timestampValue: cursor}}};
+    const res = await this.db(`/users/${uid}:runQuery`, {structuredQuery: q});
+    const rows = new Map(), names = [];
+    let readTime = null;
+    for(const r of Array.isArray(res) ? res : []){
+      if(typeof r?.readTime === "string") readTime = r.readTime;
+      const doc = r?.document, f = doc?.fields;
+      if(!f) continue;
+      if(typeof doc.name === "string") names.push(doc.name);
+      const id = f.i?.stringValue, t = Number(f.t?.integerValue), del = f.x?.booleanValue === true;
+      if(!okId(id) || !Number.isFinite(t)) continue;
+      let d = null;
+      if(!del){ try{ d = JSON.parse(f.d?.stringValue || "null"); }catch{} if(!d || typeof d !== "object" || Array.isArray(d)) continue; }
+      const prev = rows.get(id);
+      if(!prev || t > prev.t) rows.set(id, {t, del, d});
+    }
+    return {rows, names, readTime};
+  },
+
+  // una sola sincronizzazione alla volta; le richieste arrivate nel frattempo ne fanno partire un'altra
+  sync(){
+    if(!this.live() || this.busy) return Promise.resolve();
+    clearTimeout(this.soonTimer);
+    if(this.running){ this.again = true; return this.running; }
+    this.running = (async () => { do{ this.again = false; await this.once(); }while(this.again && this.live()); })()
+      .finally(() => { this.running = null; });
+    return this.running;
+  },
+  soon(){ if(!this.live()) return; clearTimeout(this.soonTimer); this.soonTimer = setTimeout(() => this.sync(), 1200); },
+
+  async once(){
+    const u = this.user;
+    if(!u?.refresh) return;
+    if(navigator.onLine === false){ this.setState("offline"); return; }
+    this.setState("syncing");
+    const same = () => this.user?.uid === u.uid && !this.busy;
+    try{
+      // 1) cosa è cambiato online dall'ultima volta
+      const {rows, readTime} = await this.pull(u.uid, this.meta().cursor);
+      if(!same()) return;
+      const m = this.meta(), o = store.read();
+      let changed = false;
+      for(const [id, r] of rows){
+        const local = has(o, id) ? Number(o[id]?.updatedAt) || 0 : m.tomb[id] || 0;
+        if(r.t > local){
+          if(r.del){ if(has(o, id)){ delete o[id]; changed = true; } m.tomb[id] = r.t; }
+          else{ const d = normalize(r.d); if(!d) continue; d.updatedAt = r.t; o[id] = d; delete m.tomb[id]; changed = true; }
+        }
+        m.synced[id] = r.t;
+      }
+      if(changed) store.check(store.write(o));
+      m.cursor = cursorFrom(readTime) || m.cursor;
+      this.saveMeta(m);
+      if(changed) store.load();
+
+      // 2) cosa è cambiato qui e non è ancora online
+      const out = [];
+      for(const id of Object.keys(o)){
+        if(!okId(id)) continue;
+        const t = Number(o[id]?.updatedAt) || 0;
+        if(t > (m.synced[id] || 0)){ const d = normalize(o[id]); if(d){ d.updatedAt = t; out.push({id, t, d}); } }
+      }
+      for(const id of Object.keys(m.tomb)) if(!has(o, id) && m.tomb[id] > (m.synced[id] || 0)) out.push({id, t: m.tomb[id], del: true});
+      for(let i = 0; i < out.length; i += 200){
+        const part = out.slice(i, i + 200);
+        await this.db(":commit", {writes: part.map(p => ({
+          update: {name: `${this.base()}/users/${u.uid}/items/${remoteId(p.id)}`, fields: {
+            i: {stringValue: p.id}, t: {integerValue: String(p.t)}, x: {booleanValue: !!p.del}, d: {stringValue: p.del ? "" : JSON.stringify(p.d)}}},
+          updateTransforms: [{fieldPath: "s", setToServerValue: "REQUEST_TIME"}],
+        }))});
+        if(!same()) return;
+        const mm = this.meta();
+        for(const p of part) if(!((mm.synced[p.id] || 0) > p.t)) mm.synced[p.id] = p.t;
+        this.saveMeta(mm);
+      }
+      this.last = Date.now(); this.err = "";
+      this.setState("ok");
+      checkBackupReminder();
+    }catch(e){
+      if(!same()) return;
+      if(e.code === "NETWORK") this.setState("offline");
+      else if(SESSION_GONE.has(e.code)){ this.setUser({...this.user, refresh: null, id: null}); this.setState("relogin"); }
+      else{ this.err = e.code === "readonly" || e.code === "quota_exceeded" || e.code === "local_failed" ? errText(e) : String(e.code || "errore"); this.setState("error"); }
+    }
+  },
+
+  // accesso riuscito: i pezzi già su questo dispositivo vengono aggiunti all'account
+  start(u){
+    const m = readJSON(SYNC_KEY);
+    if(m && m.uid !== u.uid){
+      // erano i pezzi di un altro account (sessione scaduta e accesso con un'altra email): non mischiarli
+      if(m.uid && m.synced && Object.keys(m.synced).length) store.write(dict({}));
+      writeJSON(SYNC_KEY, null);
+    }
+    this.setUser(u);
+    hideNote("install");
+    if(!readJSON(SYNC_KEY)) writeJSON(SYNC_KEY, {uid: u.uid, synced: {}, tomb: {}, cursor: null});
+    this.setState("idle");
+    store.load();
+    return this.sync();
+  },
+  // esci: i pezzi restano nell'account e spariscono da questo dispositivo
+  async logout(force){
+    if(!force && this.dirty()){ await this.sync(); if(this.dirty()) return false; }
+    clearTimeout(this.soonTimer);
+    this.user = null;
+    writeJSON(AUTH_KEY, null); writeJSON(SYNC_KEY, null);
+    store.write(dict({}));
+    this.setState("off");
+    store.load();
+    return true;
+  },
+  // elimina account: cancella tutto quello che è online; su questo dispositivo i pezzi restano
+  async deleteAccount(password){
+    const u = this.user;
+    if(!u) return;
+    this.busy = true;
+    try{
+      await this.running;
+      const fresh = await authCall("in", u.email, password);
+      if(fresh.uid !== u.uid) throw {code: "USER_MISMATCH"};
+      this.setUser(fresh);
+      const {names} = await this.pull(u.uid, null);
+      for(let i = 0; i < names.length; i += 200) await this.db(":commit", {writes: names.slice(i, i + 200).map(n => ({delete: n}))});
+      await postJSON(`${API.auth}delete?key=${FIREBASE.apiKey}`, {idToken: fresh.id});
+      this.user = null;
+      writeJSON(AUTH_KEY, null); writeJSON(SYNC_KEY, null);
+      this.setState("off");
+      store.load();
+    }finally{ this.busy = false; }
+  },
+};
+
+// ---------- finestra account ----------
+let authMode = "in", authBusy = false, logoutArmed = false;
+const AUTH_MSG = {
+  EMAIL_EXISTS: "Esiste già un account con questa email: scegli “Accedi”.",
+  INVALID_LOGIN_CREDENTIALS: "Email o password sbagliate.",
+  INVALID_PASSWORD: "Email o password sbagliate.",
+  EMAIL_NOT_FOUND: "Email o password sbagliate.",
+  INVALID_EMAIL: "Questa email non sembra valida.",
+  MISSING_PASSWORD: "Scrivi la password.",
+  WEAK_PASSWORD: "Password troppo debole: usa almeno 8 caratteri.",
+  PASSWORD_DOES_NOT_MEET_REQUIREMENTS: "Password troppo debole: usa almeno 8 caratteri, con lettere e numeri.",
+  TOO_MANY_ATTEMPTS_TRY_LATER: "Troppi tentativi. Riprova tra qualche minuto.",
+  USER_DISABLED: "Questo account è stato disattivato.",
+  OPERATION_NOT_ALLOWED: "L'accesso con email non è attivo. Riprova più tardi.",
+  NETWORK: "Nessuna connessione. Riprova quando sei online.",
+};
+const authText = code => AUTH_MSG[code] || "Non è andata. Riprova tra poco.";
+function stateText(){
+  const s = cloud.state;
+  if(s === "syncing") return "Sincronizzo…";
+  if(s === "ok"){ const t = new Date(cloud.last); return `Sincronizzato alle ${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`; }
+  if(s === "offline") return "Offline: sincronizzo appena torni online";
+  if(s === "error") return `Sincronizzazione non riuscita (${cloud.err}). Riprovo tra un minuto.`;
+  if(s === "relogin") return "Sessione scaduta: accedi di nuovo";
+  return "In attesa…";
+}
+function drawAccount(){
+  const b = $("accountBtn");
+  b.hidden = !cloudOn;
+  if(!cloudOn) return;
+  const u = cloud.user, live = cloud.live(), s = cloud.state;
+  const tone = !u ? "" : !live || s === "error" ? "bad" : s === "ok" ? "ok" : "busy";
+  b.querySelector(".txt").textContent = u ? "Account" : "Accedi";
+  const dot = b.querySelector(".dot");
+  dot.className = "dot " + tone; dot.hidden = !u;
+  b.setAttribute("aria-label", !u ? "Accedi" : "Account: " + stateText());
+
+  $("authForm").hidden = live; $("acctView").hidden = !live;
+  if(u && !live){ authMode = "in"; if(!$("a_email").value) $("a_email").value = u.email; }
+  $("authTitle").textContent = live ? "Il tuo account" : u ? "Accedi di nuovo" : authMode === "up" ? "Crea account" : "Accedi";
+  $("authSeg").hidden = !!u;
+  $("modeIn").setAttribute("aria-pressed", String(authMode === "in"));
+  $("modeUp").setAttribute("aria-pressed", String(authMode === "up"));
+  $("authSubmit").textContent = authMode === "up" ? "Crea account" : "Accedi";
+  $("a_pass").setAttribute("autocomplete", authMode === "up" ? "new-password" : "current-password");
+  $("forgotBtn").hidden = authMode === "up";
+  $("passHint").hidden = authMode !== "up";
+  $("authHint").textContent = u && !live ? "La sessione è scaduta: scrivi di nuovo la password per riprendere la sincronizzazione."
+    : items.length ? "Con un account ritrovi i tuoi pezzi sul telefono e sul PC. Quelli che hai già qui vengono aggiunti all'account."
+    : "Con un account ritrovi i tuoi pezzi sul telefono e sul PC.";
+  if(live){
+    $("acctEmail").textContent = u.email;
+    $("acctAvatar").textContent = (u.email.trim()[0] || "?").toUpperCase();
+    $("acctDot").className = "dot " + tone;
+    $("acctStateText").textContent = stateText();
+    $("syncBtn").disabled = s === "syncing";
+  }
+}
+function authError(msg){ $("authErr").textContent = msg; $("authErr").hidden = !msg; }
+function acctError(msg){ $("acctErr").textContent = msg; $("acctErr").hidden = !msg; }
+function resetAccountDlg(){
+  $("a_pass").value = ""; $("d_pass").value = ""; $("delBox").hidden = true;
+  $("acctDel").textContent = "Elimina account"; $("logoutBtn").textContent = "Esci"; logoutArmed = false;
+  authError(""); acctError("");
+}
+function openAccount(){
+  if(!cloudOn) return;
+  if(!$("authDlg").open) authMode = "in";
+  resetAccountDlg(); drawAccount();
+  if(!$("authDlg").open) $("authDlg").showModal();
+  (cloud.live() ? $("syncBtn") : $("a_email").value ? $("a_pass") : $("a_email")).focus();
+}
+function setAuthMode(m){ authMode = m; authError(""); drawAccount(); }
+
+$("accountBtn").addEventListener("click", openAccount);
+$("authClose").addEventListener("click", () => $("authDlg").close());
+$("authDlg").addEventListener("close", resetAccountDlg);
+$("modeIn").addEventListener("click", () => setAuthMode("in"));
+$("modeUp").addEventListener("click", () => setAuthMode("up"));
+$("authForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if(authBusy) return;
+  const email = $("a_email").value.trim(), password = $("a_pass").value;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ authError("Scrivi un'email valida."); $("a_email").focus(); return; }
+  if(!password){ authError("Scrivi la password."); $("a_pass").focus(); return; }
+  if(authMode === "up" && password.length < 8){ authError("La password deve avere almeno 8 caratteri."); $("a_pass").focus(); return; }
+  authBusy = true; $("authSubmit").disabled = true; authError("");
+  const mode = authMode;
+  try{
+    const u = await authCall(mode, email, password);
+    $("a_pass").value = "";
+    const done = cloud.start(u);
+    toast(mode === "up" ? "Account creato: i tuoi pezzi ora si sincronizzano." : "Accesso fatto: sincronizzo i tuoi pezzi.");
+    if($("authDlg").open) $("syncBtn").focus();
+    await done;
+  }catch(err){ authError(authText(err?.code)); }
+  finally{ authBusy = false; $("authSubmit").disabled = false; }
+});
+$("forgotBtn").addEventListener("click", async () => {
+  const email = $("a_email").value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ authError("Scrivi prima la tua email, poi tocca di nuovo “Password dimenticata?”."); $("a_email").focus(); return; }
+  $("forgotBtn").disabled = true;
+  try{
+    await postJSON(`${API.auth}sendOobCode?key=${FIREBASE.apiKey}`, {requestType: "PASSWORD_RESET", email});
+    authError(""); toast("Se esiste un account con questa email, ti è arrivato un link per scegliere una nuova password.", null, 7000);
+  }catch(err){
+    if(err?.code === "EMAIL_NOT_FOUND") toast("Se esiste un account con questa email, ti è arrivato un link per scegliere una nuova password.", null, 7000);
+    else authError(authText(err?.code));
+  }finally{ $("forgotBtn").disabled = false; }
+});
+$("syncBtn").addEventListener("click", () => { acctError(""); cloud.sync(); });
+$("logoutBtn").addEventListener("click", async () => {
+  acctError("");
+  const done = () => { $("authDlg").close(); toast("Sei uscito. I tuoi pezzi restano nel tuo account."); };
+  if(logoutArmed){ await cloud.logout(true); done(); return; }
+  $("logoutBtn").disabled = true;
+  const ok = await cloud.logout(false);
+  $("logoutBtn").disabled = false;
+  if(ok){ done(); return; }
+  logoutArmed = true; $("logoutBtn").textContent = "Esci comunque";
+  acctError("Alcune modifiche non sono ancora online (sei offline?). Se esci adesso, da questo dispositivo vanno perse.");
+});
+$("acctDel").addEventListener("click", async () => {
+  acctError("");
+  if($("delBox").hidden){
+    $("delBox").hidden = false; $("acctDel").textContent = "Elimina definitivamente"; $("d_pass").focus();
+    return;
+  }
+  const pw = $("d_pass").value;
+  if(!pw){ acctError("Scrivi la password per confermare."); $("d_pass").focus(); return; }
+  $("acctDel").disabled = true;
+  try{
+    await cloud.deleteAccount(pw);
+    $("authDlg").close();
+    toast("Account eliminato. I tuoi pezzi restano solo su questo dispositivo.", null, 6000);
+  }catch(err){
+    const c = err?.code;
+    acctError(c === "INVALID_LOGIN_CREDENTIALS" || c === "INVALID_PASSWORD" ? "Password sbagliata." : authText(c));
+    if(!cloud.live()) drawAccount();
+  }finally{ $("acctDel").disabled = false; }
+});
+
+// quando sincronizzare: all'avvio, dopo ogni modifica, quando torni sull'app o torna la rete, e ogni due minuti
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && Date.now() - cloud.last > 10000) cloud.sync(); });
+addEventListener("online", () => cloud.sync());
+addEventListener("offline", () => { if(cloud.live() && cloud.state !== "syncing") cloud.setState("offline"); });
+setInterval(() => { if(document.visibilityState === "visible") cloud.sync(); }, 120000);
+// accesso o uscita fatti in un'altra scheda
+addEventListener("storage", e => { if(e.key === AUTH_KEY || e.key === null){ cloud.load(); store.load(); if(cloud.live()) cloud.soon(); } });
+
 // ---------- avvio ----------
 try{ localStorage.setItem("rigbook.test", "1"); localStorage.removeItem("rigbook.test"); }
 catch{ storageBroken = true; showNote("storage", "Questo browser non permette di salvare i dati (forse sei in navigazione privata). Quello che aggiungi andrà perso."); }
+cloud.load();
 store.load();
+cloud.sync();
 try{ navigator.storage?.persisted?.().then(p => p || navigator.storage.persist()).catch(() => {}); }catch{}
 
 const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-if(!standalone && !storageBroken){
+if(!standalone && !storageBroken && !cloud.live()){
   const dismissed = Number(prefs.installHintDismissed) || 0;
   if(Date.now() - dismissed > 30 * 86400000){
     const text = !items.length
