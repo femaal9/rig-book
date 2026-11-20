@@ -76,14 +76,14 @@ button{font:inherit;cursor:pointer;color:inherit}
 html{touch-action:manipulation}
 svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 
-.wrap{max-width:1080px;margin:0 auto;padding-bottom:calc(96px + env(safe-area-inset-bottom,0px));
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{margin:0 auto;padding-bottom:calc(96px + env(safe-area-inset-bottom,0px));
+  padding-left:max(clamp(16px,2.5vw,40px),env(safe-area-inset-left,0px));padding-right:max(clamp(16px,2.5vw,40px),env(safe-area-inset-right,0px))}
 
 /* ---------- barra in alto ---------- */
 .topbar{position:sticky;top:0;z-index:5;padding:calc(10px + env(safe-area-inset-top,0px)) 0 10px;border-bottom:1px solid transparent;transition:border-color .2s;isolation:isolate}
 .topbar::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--topbar);-webkit-backdrop-filter:saturate(1.6) blur(16px);backdrop-filter:saturate(1.6) blur(16px)}
 .topbar.scrolled{border-bottom-color:var(--line)}
-.topbar-in{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;justify-content:space-between;gap:12px}
+.topbar-in{margin:0 auto;padding-left:max(clamp(16px,2.5vw,40px),env(safe-area-inset-left,0px));padding-right:max(clamp(16px,2.5vw,40px),env(safe-area-inset-right,0px));display:flex;align-items:center;justify-content:space-between;gap:12px}
 .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:18px;letter-spacing:-.02em;text-decoration:none;color:var(--fg)}
 .brand .mark{width:32px;height:32px;display:grid;place-items:center}
 .brand .mark svg{width:32px;height:32px;overflow:visible}
