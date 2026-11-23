@@ -9,6 +9,7 @@ Per chitarre e bassi puoi segnare scalatura, corde, accordatura e la data dell'u
 - Nessuna libreria esterna caricata da altri siti (font e QR inclusi).
 - Con "Esporta backup" salvi un file `.json`, con "Importa backup" lo ricarichi su un altro dispositivo. L'app ti ricorda di fare un backup ogni 30 giorni.
 - Prezzi scritti all'italiana ("1.450", "89,90"), ricerca su tutto, ordinamento, annulla dopo l'eliminazione.
+- **Check-up Logic**: se Logic crasha o si blocca, un comando da incollare nel Terminale del Mac (`checkup.js`, solo lettura) legge plugin Audio Unit, driver audio/MIDI, spazio, dispositivi audio e crash recenti; incollando il risultato l'app spiega cosa può dare fastidio (plugin doppi, solo Intel, senza firma, crash con il plugin colpevole…). L'analisi è tutta nel browser (`doctor.js`).
 - Quando esce una nuova versione compare un avviso con il pulsante Aggiorna.
 
 Sito statico: `index.html`, `app.js`, `sw.js`, `manifest.webmanifest`. Nessuna build.
