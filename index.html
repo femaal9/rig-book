@@ -31,7 +31,7 @@
   --btn:#1D1B22; --btn-ink:#FFF7EC; --btn-hover:#34313C;
   --sticker-edge:#FFFFFF; --sticker-shadow:0 6px 0 rgba(60,40,10,.10);
   --hover:#FFE9CC; --soft:#E4ECFF; --soft-ink:#1F4FD6;
-  --warn:#B8321A; --warn-soft:#FFE3D9; --bad:#B8321A; --bad-soft:#FFE3D9; --ok:#13804F; --mid:#8A5300; --mid-soft:#FFF0C7;
+  --warn:#B8321A; --warn-soft:#FFE3D9; --bad:#B8321A; --bad-soft:#FFE3D9; --ok:#13804F;
   --topbar:rgba(255,247,236,.86); --toast-bg:rgba(29,27,34,.95); --toast-fg:#FFF7EC;
   --card-shadow:0 10px 26px rgba(90,60,20,.10); --focus:rgba(47,107,255,.55);
   --str-plain:#B6AE9F;
@@ -45,7 +45,7 @@
   --btn:#FFF3E2; --btn-ink:#17151B; --btn-hover:#F1E2CC;
   --sticker-edge:#FFF3E2; --sticker-shadow:0 6px 0 rgba(0,0,0,.35);
   --hover:#2A2630; --soft:#1F2A4D; --soft-ink:#A9C0FF;
-  --warn:#FF9A7E; --warn-soft:#3A1F18; --bad:#FF9A7E; --bad-soft:#3A1F18; --ok:#4CC38A; --mid:#FFCB6B; --mid-soft:#3A2F12;
+  --warn:#FF9A7E; --warn-soft:#3A1F18; --bad:#FF9A7E; --bad-soft:#3A1F18; --ok:#4CC38A;
   --topbar:rgba(23,21,27,.84); --toast-bg:rgba(255,243,226,.96); --toast-fg:#17151B;
   --card-shadow:0 10px 26px rgba(0,0,0,.35); --focus:rgba(124,160,255,.7);
   --str-plain:#6E6976; color-scheme:dark}}
@@ -55,7 +55,7 @@
   --btn:#FFF3E2; --btn-ink:#17151B; --btn-hover:#F1E2CC;
   --sticker-edge:#FFF3E2; --sticker-shadow:0 6px 0 rgba(0,0,0,.35);
   --hover:#2A2630; --soft:#1F2A4D; --soft-ink:#A9C0FF;
-  --warn:#FF9A7E; --warn-soft:#3A1F18; --bad:#FF9A7E; --bad-soft:#3A1F18; --ok:#4CC38A; --mid:#FFCB6B; --mid-soft:#3A2F12;
+  --warn:#FF9A7E; --warn-soft:#3A1F18; --bad:#FF9A7E; --bad-soft:#3A1F18; --ok:#4CC38A;
   --topbar:rgba(23,21,27,.84); --toast-bg:rgba(255,243,226,.96); --toast-fg:#17151B;
   --card-shadow:0 10px 26px rgba(0,0,0,.35); --focus:rgba(124,160,255,.7);
   --str-plain:#6E6976; color-scheme:dark}
@@ -320,41 +320,6 @@ textarea{min-height:96px;resize:vertical}
 
 @media (max-width:860px){ .features{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:760px){ .summary{grid-template-columns:1fr} }
-/* ---------- check-up Logic ---------- */
-.ck .dlg-body{gap:18px}
-.ck .lead{margin:0 0 18px;font-size:16px}
-.ck-cmd{display:flex;gap:10px;align-items:center;margin:8px 0;padding:10px 10px 10px 14px;background:var(--panel);border-radius:var(--r-sm);min-width:0}
-.ck-cmd code{flex:1;min-width:0;font:13px/1.4 ui-monospace,Menlo,monospace;overflow-wrap:anywhere;user-select:all}
-.ck a{color:var(--soft-ink);font-weight:600}
-.ck-in{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 8px}
-.ck-paste{min-height:64px;font:13px/1.4 ui-monospace,Menlo,monospace;margin-bottom:8px}
-#ckResult{display:flex;flex-direction:column;gap:16px}
-.ck-mac{display:flex;flex-direction:column;gap:2px;padding:14px 16px;background:var(--panel);border-radius:var(--r-md)}
-.ck-mac strong{font-size:16px}.ck-mac span{color:var(--muted);font-size:14px}.ck-mac small{color:var(--faint);font-size:12.5px}
-.ck-verdict{margin:0;font-size:18px;font-weight:800;letter-spacing:-.015em}
-.ck-verdict span{font-weight:400;font-size:15px;color:var(--muted)}
-.ck-verdict.bad{color:var(--bad)}.ck-verdict.warn{color:var(--mid)}.ck-verdict.ok{color:var(--ok)}
-.ck-issues{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
-.ck-issue{padding:14px 16px;border-radius:var(--r-md);border:2px solid var(--line);border-left-width:6px}
-.ck-issue.bad{border-color:var(--bad-soft);border-left-color:var(--bad)}
-.ck-issue.warn{border-color:var(--mid-soft);border-left-color:var(--mid)}
-.ck-issue.info{border-left-color:var(--soft-ink)}
-.ck-issue h3{margin:6px 0 4px;font-size:16px;letter-spacing:-.01em;overflow-wrap:anywhere}
-.ck-issue p{margin:0;font-size:14px;color:var(--muted);overflow-wrap:anywhere}
-.ck-issue .ck-fix{margin-top:6px;color:var(--fg)}
-.ck-badge{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--soft);color:var(--soft-ink)}
-.bad>.ck-badge{background:var(--bad-soft);color:var(--bad)}.warn>.ck-badge{background:var(--mid-soft);color:var(--mid)}
-.ck-h{margin:8px 0 0;font-size:17px}
-.ck-steps{gap:12px}.ck-steps .num{width:34px;height:34px;font-size:16px;border-radius:11px}.ck-steps h3{font-size:15.5px}
-.ck-all summary{cursor:pointer;font-weight:700;padding:6px 0}
-.ck-plugs{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column}
-.ck-plugs li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
-.ck-plugs li>div:first-child{min-width:0;display:flex;flex-direction:column}
-.ck-plugs strong{font-size:14px;overflow-wrap:anywhere}.ck-plugs small{color:var(--muted);font-size:12.5px}
-.ck-tags{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;flex:none;max-width:55%}
-.ck-tag{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--panel);color:var(--muted);white-space:nowrap}
-.ck-tag.bad{background:var(--bad-soft);color:var(--bad)}.ck-tag.warn{background:var(--mid-soft);color:var(--mid)}
-@media (max-width:640px){ .ck-cmd{flex-direction:column;align-items:stretch} .ck .dlg-foot .right{width:100%} .ck .dlg-foot .right .btn{flex:1} }
 @media (max-width:640px){
   .actions .btn.ghost .txt{display:none}
   .actions .btn.ghost{padding:9px}
@@ -391,7 +356,6 @@ textarea{min-height:96px;resize:vertical}
     </a>
     <div class="actions">
       <button type="button" class="btn ghost" id="helpBtn" aria-label="Come funziona"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7M12 17h.01"/></svg><span class="txt">Come funziona</span></button>
-      <button type="button" class="btn ghost" id="checkupBtn" aria-label="Check-up Logic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h4l2.5-6 4 13 3-9 1.5 2H22"/></svg><span class="txt">Check-up</span></button>
       <button type="button" class="btn ghost" id="importBtn" aria-label="Importa backup"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 10l5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span class="txt">Importa</span></button>
       <button type="button" class="btn ghost" id="exportBtn" aria-label="Esporta backup"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span class="txt">Esporta backup</span></button>
       <button type="button" class="btn ghost acct-btn" id="accountBtn" aria-label="Collega telefono e PC" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="14" height="10" rx="1.5"/><path d="M5 18h8"/><rect x="16" y="9" width="6" height="11" rx="1.5"/></svg><span class="txt">Collega</span><span class="dot" hidden></span></button>
@@ -611,38 +575,6 @@ textarea{min-height:96px;resize:vertical}
   </div>
 </dialog>
 
-<dialog id="ckDlg" class="ck" aria-labelledby="ckTitle">
-  <div class="dlg">
-    <div class="dlg-head">
-      <h2 id="ckTitle">Check-up Logic</h2>
-      <button type="button" class="close" id="ckClose" aria-label="Chiudi">×</button>
-    </div>
-    <div class="dlg-body">
-      <div id="ckStart">
-        <p class="lead">Logic crasha o si blocca? Il check-up guarda il Mac e ti dice cosa può dargli fastidio: plugin vecchi o doppi, driver, spazio sul disco, scheda audio e i crash recenti.</p>
-        <ol class="steps">
-          <li class="cat-guitar"><span class="num" aria-hidden="true">1</span><div><h3>Apri il Terminale</h3><p>Sul Mac con Logic premi ⌘ + Spazio, scrivi <b>Terminale</b> e premi Invio.</p></div></li>
-          <li class="cat-fx"><span class="num" aria-hidden="true">2</span><div><h3>Incolla questo comando e premi Invio</h3>
-            <div class="ck-cmd"><code id="ckCmd"></code><button type="button" class="btn small primary" id="ckCmdCopy">Copia comando</button></div>
-            <p>Ci mette meno di un minuto. Legge soltanto: non cambia, non sposta e non manda niente. <a id="ckSrc" target="_blank" rel="noopener">Guarda lo script</a></p></div></li>
-          <li class="cat-interface"><span class="num" aria-hidden="true">3</span><div><h3>Torna qui e incolla il risultato</h3><p>Il risultato è già negli appunti.</p>
-            <div class="ck-in">
-              <button type="button" class="btn primary" id="ckFromClip">Incolla risultato</button>
-              <button type="button" class="btn small ghost" id="ckFileBtn">oppure apri checkup-logic.json</button>
-              <input type="file" id="ckFile" accept=".json,application/json" hidden>
-            </div>
-            <textarea id="ckPaste" class="ck-paste" spellcheck="false" placeholder="…o incollalo qui con ⌘V" aria-label="Risultato del check-up"></textarea>
-            <button type="button" class="btn small" id="ckGo">Analizza</button></div></li>
-        </ol>
-        <p class="err" id="ckErr" role="alert" hidden></p>
-      </div>
-      <div id="ckResult" hidden></div>
-    </div>
-    <div class="dlg-foot"><div class="right"><button type="button" class="btn" id="ckAgain" hidden>Nuovo check-up</button><button type="button" class="btn primary" id="ckCopy" hidden>Copia riepilogo</button></div></div>
-  </div>
-</dialog>
-
-<script src="app.js?v=25"></script>
-<script src="doctor.js?v=1"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>
